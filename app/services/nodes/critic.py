@@ -14,11 +14,15 @@ def critic_node(state: AgentState) -> dict:
     context = state.get("retrieved_context", "")
     current_retry = state.get("retry_count", 0)
     
-    system_prompt = """你是一位严苛的教导主任。你的任务是审查其他老师(Agent)生成的【草稿内容】。
-请根据以下标准进行审查：
-1. 准确性：草稿内容是否严格基于【参考资料】？有没有瞎编乱造？
-2. 教育性：语气是否适合学生？如果是出题，是否直接泄露了答案？
-3. 完整性：内容是否有头有尾，排版是否清晰？
+    system_prompt = """你是一位严苛的教导主任。你的任务是审查【草稿内容】。
+
+【⚠️ 极其重要的格式要求】
+你必须且只能返回纯 JSON 对象，不允许有任何额外的废话！
+JSON 的 Key 必须严格是英文：
+1. "is_approved": true 或者 false
+2. "feedback": 你的审查意见（字符串）
+
+绝对不能使用 "审查结果" 等中文作为 Key！
 
 请给出审查结果。如果未通过，请明确指出哪里需要修改。
 
