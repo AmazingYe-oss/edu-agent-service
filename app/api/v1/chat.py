@@ -10,7 +10,10 @@ async def chat_endpoint(request: ChatRequest):
     print(f"\n[API 收到新请求] User: {request.message}")
     
     initial_state = {
-        "messages": [HumanMessage(content=request.message)]
+        "messages": [HumanMessage(content=request.message)],
+        "retry_count": 0,
+        "critic_feedback": "",
+        "is_approved": False
     }
     final_state = edu_agent_app.invoke(initial_state)
     response_text = final_state.get("draft_response", "系统未能生成任何回复。")

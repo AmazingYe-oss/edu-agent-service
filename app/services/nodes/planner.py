@@ -32,6 +32,11 @@ def planner_node(state: AgentState) -> dict:
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
+        ("human", "{question}")
+    ])
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system_prompt),
         MessagesPlaceholder(variable_name="messages"),
     ]).partial(format_instructions=parser.get_format_instructions())
     

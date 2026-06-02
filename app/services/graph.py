@@ -3,55 +3,63 @@ from app.services.state import AgentState
 from app.services.nodes.planner import planner_node
 from app.services.nodes.learner import learner_node
 from app.services.nodes.quizzler import quizzler_node
-from app.services.nodes.scorer import scorer_node     
+from app.services.nodes.scorer import scorer_node
 from app.services.nodes.explainer import explainer_node
+from app.services.nodes.critic import critic_node 
 
 def route_from_planner(state: AgentState) -> str:
-    """根据 Planner 的决策，决定 Graph 的下一跳"""
     next_agent = state.get("next_agent")
+    mapping = {
+        "learn": "learner_node",
+        "quiz": "quizzler_node",
+        "score": "scorer_node",
+        "explain": "explainer_node",
+        "direct": END
+    }
+    return mapping.get(next_agent, END)
+
+def route_from_critic(state: AgentState) -> str:
+    """核心循环逻辑：根据审查结果决定是结束，还是打回"""
+    is_approved = state.get("is_approved", False)
+    retry_count = state.get("retry_count", 0)
+    MAX_RETRIES = 2  
     
-    # 完整的路由映射表
-    if next_agent == "learn":
-        return "learner_node"
-    elif next_agent == "quiz":
-        return "quizzler_node"
-    elif next_agent == "score":
-        return "scorer_node"      
-    elif next_agent == "explain":
-        return "explainer_node"   
-    elif next_agent == "direct":
-        return END  
+    if is_approved:
+        return END
+    elif retry_count >= MAX_RETRIES:
+        print(f"🚨 达到最大重试次数({MAX_RETRIES})，强制输出当前草稿！")
+        return END
     else:
-        print(f"节点 [{next_agent}] 异常或未识别，直接结束")
-        return END 
+        next_agent = state.get("next_agent")
+        mapping = {
+            "learn": "learner_node",
+            "quiz": "quizzler_node",
+            "score": "scorer_node",
+            "explain": "explainer_node"
+        }
+        return mapping.get(next_agent, END)
 
 def build_graph():
     workflow = StateGraph(AgentState)
     
+    # 注册节点
     workflow.add_node("planner", planner_node)
     workflow.add_node("learner_node", learner_node)
     workflow.add_node("quizzler_node", quizzler_node)
-    workflow.add_node("scorer_node", scorer_node)         
-    workflow.add_node("explainer_node", explainer_node)   
+    workflow.add_node("scorer_node", scorer_node)
+    workflow.add_node("explainer_node", explainer_node)
+    workflow.add_node("critic_node", critic_node) # 🌟 注册审查节点
     
     workflow.set_entry_point("planner")
     
-    workflow.add_conditional_edges(
-        "planner",
-        route_from_planner,
-        {
-            "learner_node": "learner_node",
-            "quizzler_node": "quizzler_node",
-            "scorer_node": "scorer_node",           
-            "explainer_node": "explainer_node",     
-            END: END
-        }
-    )
+    workflow.add_conditional_edges("planner", route_from_planner)
     
-    workflow.add_edge("learner_node", END)
-    workflow.add_edge("quizzler_node", END)
-    workflow.add_edge("scorer_node", END)           
-    workflow.add_edge("explainer_node", END)     
+    workflow.add_edge("learner_node", "critic_node")
+    workflow.add_edge("quizzler_node", "critic_node")
+    workflow.add_edge("scorer_node", "critic_node")
+    workflow.add_edge("explainer_node", "critic_node")
+    
+    workflow.add_conditional_edges("critic_node", route_from_critic)
     
     return workflow.compile()
 

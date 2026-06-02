@@ -26,6 +26,15 @@ def explainer_node(state: AgentState) -> dict:
 【辅导资料】
 {context}
 """
+    feedback = state.get("critic_feedback")
+    if feedback and not state.get("is_approved"):
+        print(f" [Explain Agent] 收到教导主任的打回意见，正在反思修改...")
+        system_prompt += f"\n\n【教导主任打回意见】\n你上一次的回答未通过审查，原因是：{feedback}\n请务必针对上述意见，重新生成一份更好的讲解！"
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system_prompt),
+        ("human", "{question}")
+    ])
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
