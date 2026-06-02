@@ -1,64 +1,44 @@
 import httpx
-from typing import Dict, Any, List
-from app.services.state import GraphState, SearchDocument
+from pydantic import BaseModel, Field
 from app.core.config import settings
 
-async def search_rag_api(query: str, top_k: int = 5) -> List[SearchDocument]:
-    """调用 RAG API 进行搜索"""
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                f"{settings.RAG_API_BASE_URL}/api/v1/search",
-                json={
-                    "query": query,
-                    "top_k": top_k
-                },
-                headers={
-                    "Authorization": f"Bearer {settings.RAG_API_KEY}" if settings.RAG_API_KEY else "",
-                    "Content-Type": "application/json"
-                },
-                timeout=30.0
-            )
-            response.raise_for_status()
-            data = response.json()
-            
-            results = []
-            for item in data.get("results", []):
-                results.append(SearchDocument(
-                    content=item.get("content", ""),
-                    source=item.get("source"),
-                    score=item.get("score", 0.0),
-                    metadata=item.get("metadata")
-                ))
-            return results
-            
-        except Exception as e:
-            print(f"RAG API 调用失败: {e}")
-            return []
+class SearchResultItem(BaseModel):
+    index: int = Field(..., description="排名序号")
+    content: str = Field(..., description="检索到的文本片段")
+    file_name: str = Field(default="未知文件", description="来源文件名")
+    file_type: str = Field(default="", description="文件类型扩展名")
+    score: float | None = Field(default=None, description="相似度分数")
 
-async def rag_search_tool(state: GraphState) -> Dict[str, Any]:
-    """RAG 搜索工具节点"""
+class SearchResponse(BaseModel):
+    query: str = Field(..., description="原始查询语句")
+    results: list[SearchResultItem] = Field(default_factory=list, description="检索结果列表")
+    count: int = Field(default=0, description="结果总数")
+
+def search_knowledge(query: str, top_k: int = 3) -> str:
+    """
+    调用底层的 edu-rag-bot 搜索接口获取相关知识
+    """
+    
+    url = f"{settings.RAG_API_BASE_URL}/api/v1/search"
+    payload = {
+        "query": query,
+        "top_k": top_k
+    }
+    
     try:
-        # 从计划中提取关键词进行搜索
-        query = state.user_query
+        response = httpx.post(url, json=payload, timeout=15.0)
+        response.raise_for_status()
+        search_data = SearchResponse(**response.json())
         
-        # 如果有计划，使用计划中的关键词
-        if state.plan:
-            # 简单的关键词提取（实际项目中可以更复杂）
-            lines = state.plan.split("\n")
-            for line in lines:
-                if "搜索" in line or "查找" in line:
-                    query = line.split("：")[-1] if "：" in line else line
-                    break
+        if not search_data.results:
+            return "数据库中未检索到相关资料。"
         
-        results = await search_rag_api(query)
+        context = ""
+        for item in search_data.results:
+            context += f"【参考资料 {item.index}】(来源: {item.file_name})\n{item.content}\n\n"
+            
+        return context
         
-        return {
-            "search_results": results,
-            "current_agent": "learner"  # 返回给 learner 处理
-        }
     except Exception as e:
-        return {
-            "error": f"RAG 搜索错误: {str(e)}",
-            "search_results": []
-        }
+        print(f" [RAG Tool] 检索失败: {e}")
+        return "知识库检索服务暂不可用，请根据自身知识进行解答。"

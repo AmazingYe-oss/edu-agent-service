@@ -1,52 +1,48 @@
-from typing import Dict, Any
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
-from app.services.state import GraphState
-from app.core.config import settings
+# app/services/nodes/learner.py
+from app.services.state import AgentState
+from app.core.llm import get_llm
+from langchain_core.prompts import ChatPromptTemplate
+from app.services.tools.rag_search import search_knowledge
 
-LEARNER_SYSTEM_PROMPT = """你是一个专业的教育辅导助手。基于提供的学习计划和搜索结果，为学生提供详细、易懂的解答。
+def learner_node(state: AgentState) -> dict:
+    print("[Learner Agent] 收到任务，准备查阅资料并备课...")
+    
+    user_latest_msg = state["messages"][-1].content
+    search_query = state.get("user_intent") or user_latest_msg
+    
 
-请遵循以下原则：
-1. 使用清晰、简洁的语言
-2. 提供具体的例子
-3. 将复杂概念分解为简单步骤
-4. 鼓励学生并提供学习建议
+    context = search_knowledge(search_query)
+    print(f"🔍 [Learner Agent] 知识库检索完毕，资料长度: {len(context)} 字符")
+    
+    system_prompt = """你是一位深受学生喜爱的特级教师。你的任务是根据提供的【参考资料】为学生讲解知识点。
 
-如果提供了搜索结果，请基于这些信息回答问题。
+【教学要求】
+1. 通俗易懂：语言要幽默风趣，多用生活中的生动比喻。
+2. 严谨求实：必须基于【参考资料】进行讲解，绝对不能编造资料中没有的核心概念！
+3. 结构清晰：可以分为“概念引入”、“核心原理解释”、“生活实例”三个部分。
+4. 启发思考：在最后抛出一个小问题，引导学生思考。
+
+【参考资料】
+{context}
 """
 
-async def learner_node(state: GraphState) -> Dict[str, Any]:
-    """学习节点 - 根据计划和搜索结果生成最终响应"""
-    try:
-        llm = ChatOpenAI(
-            model=settings.OPENAI_MODEL,
-            temperature=settings.OPENAI_TEMPERATURE,
-            api_key=settings.OPENAI_API_KEY
-        )
-        
-        # 构建上下文
-        context = state.plan or ""
-        if state.search_results:
-            context += "\n\n搜索结果:\n"
-            for i, doc in enumerate(state.search_results, 1):
-                context += f"{i}. {doc.content}\n   来源: {doc.source or '未知'}\n"
-        
-        messages = [
-            SystemMessage(content=LEARNER_SYSTEM_PROMPT),
-            HumanMessage(content=f"用户问题: {state.user_query}\n\n计划和上下文:\n{context}")
-        ]
-        
-        response = await llm.ainvoke(messages)
-        
-        return {
-            "response": response.content,
-            "current_agent": "learner",
-            "messages": state.messages + [
-                {"role": "assistant", "content": response.content, "agent": "learner"}
-            ]
-        }
-    except Exception as e:
-        return {
-            "error": f"学习节点错误: {str(e)}",
-            "current_agent": "learner"
-        }
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system_prompt),
+        ("human", "{question}")
+    ])
+    
+    llm = get_llm()
+    chain = prompt | llm
+    
+    print(" [Learner Agent] 正在根据资料生成教学内容...")
+    response = chain.invoke({
+        "context": context,
+        "question": user_latest_msg
+    })
+    
+    print("[Learner Agent] 讲解内容生成完毕！")
+    
+    return {
+        "draft_response": response.content,
+        "retrieved_context": context
+    }

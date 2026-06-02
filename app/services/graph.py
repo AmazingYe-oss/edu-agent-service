@@ -1,84 +1,58 @@
-from langgraph.graph import Graph, StateGraph
-from langgraph.prebuilt import ToolExecutor
-from typing import Dict, Any, Optional
-import uuid
-
-from app.services.state import GraphState
+from langgraph.graph import StateGraph, END
+from app.services.state import AgentState
 from app.services.nodes.planner import planner_node
 from app.services.nodes.learner import learner_node
-from app.services.tools.rag_search import rag_search_tool
+from app.services.nodes.quizzler import quizzler_node
+from app.services.nodes.scorer import scorer_node     
+from app.services.nodes.explainer import explainer_node
 
-def create_graph() -> Graph:
-    """创建 LangGraph 图"""
+def route_from_planner(state: AgentState) -> str:
+    """根据 Planner 的决策，决定 Graph 的下一跳"""
+    next_agent = state.get("next_agent")
     
-    # 创建状态图
-    workflow = StateGraph(GraphState)
+    # 完整的路由映射表
+    if next_agent == "learn":
+        return "learner_node"
+    elif next_agent == "quiz":
+        return "quizzler_node"
+    elif next_agent == "score":
+        return "scorer_node"      
+    elif next_agent == "explain":
+        return "explainer_node"   
+    elif next_agent == "direct":
+        return END  
+    else:
+        print(f"节点 [{next_agent}] 异常或未识别，直接结束")
+        return END 
+
+def build_graph():
+    workflow = StateGraph(AgentState)
     
-    # 添加节点
     workflow.add_node("planner", planner_node)
-    workflow.add_node("learner", learner_node)
+    workflow.add_node("learner_node", learner_node)
+    workflow.add_node("quizzler_node", quizzler_node)
+    workflow.add_node("scorer_node", scorer_node)         
+    workflow.add_node("explainer_node", explainer_node)   
     
-    # 添加工具节点
-    workflow.add_node("rag_search", rag_search_tool)
+    workflow.set_entry_point("planner")
     
-    # 定义边
-    def should_continue(state: GraphState) -> str:
-        """决定下一步流向"""
-        if state.error:
-            return "end"
-        if state.current_agent == "planner" and state.plan:
-            return "learner"
-        elif state.current_agent == "learner" and state.response:
-            return "end"
-        elif state.search_results:
-            return "learner"
-        return "end"
-    
-    # 添加条件边
     workflow.add_conditional_edges(
         "planner",
-        should_continue,
+        route_from_planner,
         {
-            "learner": "learner",
-            "end": "__end__"
+            "learner_node": "learner_node",
+            "quizzler_node": "quizzler_node",
+            "scorer_node": "scorer_node",           
+            "explainer_node": "explainer_node",     
+            END: END
         }
     )
     
-    workflow.add_conditional_edges(
-        "learner",
-        should_continue,
-        {
-            "rag_search": "rag_search",
-            "end": "__end__"
-        }
-    )
-    
-    workflow.add_edge("rag_search", "learner")
-    
-    # 设置入口
-    workflow.set_entry_point("planner")
+    workflow.add_edge("learner_node", END)
+    workflow.add_edge("quizzler_node", END)
+    workflow.add_edge("scorer_node", END)           
+    workflow.add_edge("explainer_node", END)     
     
     return workflow.compile()
 
-# 创建图实例
-graph = create_graph()
-
-async def run_graph(user_message: str, conversation_id: Optional[str] = None) -> Dict[str, Any]:
-    """运行图"""
-    if not conversation_id:
-        conversation_id = str(uuid.uuid4())
-    
-    # 初始化状态
-    initial_state = GraphState(
-        user_query=user_message,
-        conversation_id=conversation_id,
-        messages=[{"role": "user", "content": user_message}]
-    )
-    
-    # 运行图
-    final_state = await graph.ainvoke(initial_state)
-    
-    return {
-        "response": final_state.response or "抱歉，我无法处理您的请求。",
-        "conversation_id": final_state.conversation_id
-    }
+edu_agent_app = build_graph()

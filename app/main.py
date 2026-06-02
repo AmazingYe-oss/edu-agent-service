@@ -1,19 +1,18 @@
 from fastapi import FastAPI
 from app.api.v1 import chat
+import uvicorn
 
 app = FastAPI(
-    title="Edu Agent Service",
-    description="基于 LangGraph 的教育智能代理服务",
+    title="Edu Multi-Agent API",
+    description="基于 LangGraph 的多智能体教育系统大脑",
     version="1.0.0"
 )
 
-# 注册路由
-app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
+app.include_router(chat.router, prefix="/api/v1", tags=["Chat"])
 
 @app.get("/")
-async def root():
-    return {"message": "Edu Agent Service is running"}
+def read_root():
+    return {"status": "ok", "message": "Welcome to Edu Multi-Agent Service! 请访问 /docs 查看接口文档。"}
 
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
+if __name__ == "__main__":
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8080, reload=True)
