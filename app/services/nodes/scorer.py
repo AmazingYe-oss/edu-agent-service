@@ -1,56 +1,47 @@
+# app/services/nodes/score.py
 from app.services.state import AgentState
-from app.core.llm import get_llm
-from langchain_core.prompts import ChatPromptTemplate
-from app.services.tools.rag_search import search_knowledge
+from app.core.llm import get_chat_model
+from app.tools.rag import search_knowledge_base
+from langgraph.prebuilt import create_react_agent as create_agent
+from langchain_core.messages import HumanMessage, SystemMessage
 
 def scorer_node(state: AgentState) -> dict:
-    print("[Score Agent] 收到任务，准备检索标准答案并批改作业...")
+    print("💯 [Scorer Agent] 裁判正在查阅权威教材，核对学生答案...")
     
-    user_latest_msg = state["messages"][-1].content
-    intent = state.get("user_intent") or user_latest_msg
-    search_query = f"{intent} 标准答案 评分标准 解析"
-    context = search_knowledge(search_query)
-    print(f"[Score Agent] 答案检索完毕，资料长度: {len(context)} 字符")
+    user_answer = state.get("user_message", "")
+    current_kp = state.get("current_knowledge_point", "通用知识")
     
-    system_prompt = """你是一位公正严明且充满鼓励的阅卷老师。
-用户的输入是他们提交的题目答案。你的任务是根据【参考答案资料】批改用户的解答。
+    system_prompt = f"""你是一位铁面无私的阅卷裁判。
+用户的输入是他们对某道题的回答。你现在需要判定他们的回答是否正确。
+为了防止你自己发生幻觉，你必须使用 `search_knowledge_base` 工具，检索关于【{current_kp}】的标准定义和权威答案。
 
-【批改要求】
-1. 明确判定：首先明确告诉学生“回答正确”、“回答错误”或“部分正确”。
-2. 对比分析：简明扼要地指出学生的答案与标准答案的差异。
-3. 给出评分：如果合适，给出一个虚拟的得分（例如 80/100 分）。
-4. 适度点评：给出鼓励性的评语。如果学生做错了，简单点出错误原因，但不要在这里长篇大论地从头讲授知识点（那是辅导老师的工作）。
-
-【参考答案资料】
-{context}
+核对完毕后，请返回以下两部分内容：
+1. 是否正确（明确告知对错）
+2. 简短的分步判定理由。
 """
-    feedback = state.get("critic_feedback")
-    if feedback and not state.get("is_approved"):
-        print(f" [Score Agent] 收到教导主任的打回意见，正在反思修改...")
-        system_prompt += f"\n\n【 教导主任打回意见】\n你上一次的回答未通过审查，原因是：{feedback}\n请务必针对上述意见，重新批改！"
 
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
-        ("human", "{question}")
-    ])
-
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
-        ("human", "我的答案/解答是：\n{question}")
-    ])
+    llm = get_chat_model()
+    tools = [search_knowledge_base] # 给裁判分发 RAG 教材库工具
     
-    llm = get_llm()
-    chain = prompt | llm
+    react_agent = create_agent(model=llm, tools=tools)
     
-    print("[Score Agent] 正在对比答案，进行批改打分...")
-    response = chain.invoke({
-        "context": context,
-        "question": user_latest_msg
-    })
+    messages = [
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=f"学生的回答是：'{user_answer}'。请结合权威资料进行批改。")
+    ]
     
-    print("[Score Agent] 批改完毕！")
+    # 批改不需要传 user_id，所以这里不用特意传 config
+    result = react_agent.invoke({"messages": messages})
+    score_analysis = result["messages"][-1].content
     
+    # 极其简易的启发式判断，用于告诉下游要不要落盘错题本
+    # 只要AI回复里包含了“错”、“不正确”、“错误”，就判定为不通过
+    is_approved = True
+    if any(word in score_analysis for word in ["错", "不正确", "不完美", "误"]):
+        is_approved = False
+        
+    print(f"💯 [Scorer Agent] 批改完毕。判定结果 -> 【{'通过' if is_approved else '错误'}】")
     return {
-        "draft_response": response.content,
-        "retrieved_context": context
+        "draft_response": score_analysis,
+        "is_approved": is_approved
     }

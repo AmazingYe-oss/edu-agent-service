@@ -6,6 +6,10 @@ from app.services.nodes.quizzler import quizzler_node
 from app.services.nodes.scorer import scorer_node
 from app.services.nodes.explainer import explainer_node
 from app.services.nodes.critic import critic_node 
+from app.services.nodes.memory import memory_node
+from redis import Redis
+from langgraph.checkpoint.redis import RedisSaver
+from app.core.config import settings
 
 def route_from_planner(state: AgentState) -> str:
     next_agent = state.get("next_agent")
@@ -49,6 +53,7 @@ def build_graph():
     workflow.add_node("scorer_node", scorer_node)
     workflow.add_node("explainer_node", explainer_node)
     workflow.add_node("critic_node", critic_node) # 🌟 注册审查节点
+    workflow.add_node("memory_node", memory_node)
     
     workflow.set_entry_point("planner")
     
@@ -60,6 +65,10 @@ def build_graph():
     workflow.add_edge("explainer_node", "critic_node")
     
     workflow.add_conditional_edges("critic_node", route_from_critic)
+    workflow.add_edge("memory_node", END)
+    
+
+    memory = RedisSaver(settings.REDIS_URL)
     
     return workflow.compile()
 

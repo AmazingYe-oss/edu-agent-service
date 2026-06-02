@@ -1,58 +1,40 @@
+# app/services/nodes/explainer.py
 from app.services.state import AgentState
-from app.core.llm import get_llm
-from langchain_core.prompts import ChatPromptTemplate
-from app.services.tools.rag_search import search_knowledge
+from app.core.llm import get_chat_model
+from app.tools.rag import search_knowledge_base
+from app.tools.database import check_error_book_tool
+from langgraph.prebuilt import create_react_agent as create_agent
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
 
-def explainer_node(state: AgentState) -> dict:
-    print("[Explain Agent] 收到任务，准备针对疑难/错题进行辅导...")
+def explainer_node(state: AgentState, config: RunnableConfig) -> dict:
+    print("👨‍🏫 [Explainer Agent] 特级辅导老师开始全副武装，准备为学生答疑解惑...")
     
-    user_latest_msg = state["messages"][-1].content
-    intent = state.get("user_intent") or user_latest_msg
-    
-    search_query = f"{intent} 详细解析 解题步骤 易错点剖析"
-    
-    context = search_knowledge(search_query)
-    print(f"[Explain Agent] 辅导资料检索完毕，资料长度: {len(context)} 字符")
-    
-    system_prompt = """你是一位极具耐心的金牌私教辅导老师。
-用户的输入通常是因为他们做错了题目，或者对某道题的解析有疑问。你需要根据【辅导资料】为他们答疑解惑。
+    user_msg = state.get("user_message", "")
+    current_kp = state.get("current_knowledge_point", "当前知识点")
+    score_report = state.get("draft_response", "") # 上一步 Scorer 留下的批改分析
 
-【辅导要求】
-1. 安抚情绪：先肯定学生的钻研精神，不要有高高在上的说教感。
-2. 抽丝剥茧：不要直接把标准答案糊在学生脸上。要一步一步地拆解【解题思路】。
-3. 暴露盲区：指出这道题容易踩坑的地方（易错点），分析学生为什么会产生疑问。
-4. 启发苏格拉底式提问：在讲解的最后，留一个微小的一步让学生自己推导，或者反问学生一个引导性问题。
+    system_prompt = f"""你是一位极具耐心的特级辅导老师。学生现在做错题了或者陷入了认知盲区。
+为了给他提供最权威、最个性化的讲解，你拥有两个神技，请根据需要自主调用：
+1. `search_knowledge_base`：去权威教材库里查阅【{current_kp}】的核心精髓。
+2. `check_error_book_tool`：去查一查他以前是不是也错过类似的题，看看他是不是惯犯。
 
-【辅导资料】
-{context}
+请结合你查到的所有信息，给他写一段深入浅出的错误原因分析和正确解题思路。语气要鼓励、温暖！
 """
-    feedback = state.get("critic_feedback")
-    if feedback and not state.get("is_approved"):
-        print(f" [Explain Agent] 收到教导主任的打回意见，正在反思修改...")
-        system_prompt += f"\n\n【教导主任打回意见】\n你上一次的回答未通过审查，原因是：{feedback}\n请务必针对上述意见，重新生成一份更好的讲解！"
 
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
-        ("human", "{question}")
-    ])
-
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
-        ("human", "我的疑问或错题情况是：\n{question}")
-    ])
+    llm = get_chat_model()
+    # 装备两件神兵
+    tools = [search_knowledge_base, check_error_book_tool]
     
-    llm = get_llm()
-    chain = prompt | llm
+    react_agent = create_agent(model=llm, tools=tools)
     
-    print("[Explain Agent] 正在撰写循循善诱的辅导内容...")
-    response = chain.invoke({
-        "context": context,
-        "question": user_latest_msg
-    })
+    messages = [
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=f"学生说：'{user_msg}'。裁判的批改意见是：'{score_report}'。请开始辅导。")
+    ]
     
-    print("[Explain Agent] 辅导内容生成完毕！")
+    result = react_agent.invoke({"messages": messages}, config=config)
+    explanation = result["messages"][-1].content
     
-    return {
-        "draft_response": response.content,
-        "retrieved_context": context
-    }
+    print("👨‍🏫 [Explainer Agent] 深度辅导内容生成完毕！")
+    return {"draft_response": explanation}
