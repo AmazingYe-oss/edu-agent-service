@@ -55,4 +55,7 @@ def planner_node(state: AgentState, config: RunnableConfig) -> dict:
         intent = "learn"
         
     print(f"🧠 [Planner Agent] 意图分析完毕。决定路由给 -> 【{intent}】")
-    return {"user_intent": intent}
+    return {
+        "user_intent": intent,
+        "next_agent": intent  
+    }
