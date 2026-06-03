@@ -6,7 +6,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 async def planner_node(state: AgentState, config: RunnableConfig) -> dict:
-    print("🧠 [Planner Agent] 指挥官正在结合历史记忆与学生画像，分析用户意图...")
+    print("[Planner Agent] 指挥官正在结合历史记忆与学生画像，分析用户意图...")
     
     user_message = state.get("user_message", "")
     history = state.get("history", [])
@@ -54,7 +54,7 @@ async def planner_node(state: AgentState, config: RunnableConfig) -> dict:
     elif "INTENT: learn" in ai_thought:
         intent = "learn"
         
-    print(f"🧠 [Planner Agent] 意图分析完毕。决定路由给 -> 【{intent}】")
+    print(f"[Planner Agent] 意图分析完毕。决定路由给 -> 【{intent}】")
     return {
         "user_intent": intent,
         "next_agent": intent  

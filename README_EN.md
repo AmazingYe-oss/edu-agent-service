@@ -1,8 +1,8 @@
-# 🎓 Edu Multi-Agent Service
+# Edu Multi-Agent Service
 
 A multi-agent education system based on **LangGraph**, providing personalized intelligent tutoring services through the collaboration of multiple specialized AI Agents.
 
-## ✨ Core Features
+## Core Features
 
 - **Multi-Agent Collaborative Architecture**: 7 specialized agents work together to accomplish teaching tasks
 - **Intelligent Intent Recognition**: Automatically analyze student needs and route to the most suitable teaching node
@@ -10,15 +10,15 @@ A multi-agent education system based on **LangGraph**, providing personalized in
 - **Personalized Learning**: Student profiles, error books, and knowledge mastery tracking
 - **Quality Assurance Mechanism**: Critic Agent reviews content to ensure output quality
 - **Long-term Memory System**: Three-tier storage architecture with Redis + PostgreSQL + DashVector
+- **Asynchronous Persistence**: Uses FastAPI BackgroundTasks for async data writing, improving response speed
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```
 User Input
     ↓
 ┌─────────────┐
 │  Planner    │  ← Teaching Director: Analyze intent, determine routing
-│  (Commander) │
 └─────────────┘
     ↓ (Intent Routing)
 ┌─────────────────────────────────────────────────────┐
@@ -36,13 +36,15 @@ User Input
 ┌─────────────┐
 │   Critic    │  ← Teaching Director: Quality review (can reject and redo)
 └─────────────┘
-    ↓
-┌─────────────┐
-│   Memory    │  ← Memory System: Data persistence
-└─────────────┘
+    ↓ (Sync response return)
+    ↓ (Async background persistence)
+┌─────────────────────────────────────┐
+│  BackgroundTasks → PostgreSQL +     │
+│  DashVector (Async data persistence)│
+└─────────────────────────────────────┘
 ```
 
-## 🤖 Agent Roles
+## Agent Roles
 
 | Agent | Role | Responsibilities | Tools Used |
 |-------|------|------------------|------------|
@@ -52,9 +54,8 @@ User Input
 | **Scorer** | Judge | Grade assignments, determine correctness | `search_knowledge_base` |
 | **Explainer** | Senior Tutor | In-depth analysis of wrong answers, provide problem-solving approaches | `search_knowledge_base`, `check_error_book_tool` |
 | **Critic** | Teaching Director | Review content quality, can reject and redo | Structured output |
-| **Memory** | Memory System | Persist learning data to database | PostgreSQL, DashVector |
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Web Framework**: FastAPI + Uvicorn
 - **AI Framework**: LangChain + LangGraph
@@ -64,7 +65,7 @@ User Input
 - **Cache/State Storage**: Redis (Alibaba Cloud)
 - **ORM**: SQLAlchemy 2.0
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 edu-agent-service/
@@ -87,8 +88,8 @@ edu-agent-service/
 │   │   │   ├── quizzler.py      # Intelligent question generation
 │   │   │   ├── scorer.py        # Automatic grading
 │   │   │   ├── explainer.py     # Error analysis
-│   │   │   ├── critic.py        # Quality review
-│   │   │   └── memory.py        # Data persistence
+│   │   │   └── critic.py        # Quality review
+│   │   ├── async_persistence.py # Async persistence service
 │   │   ├── graph.py             # LangGraph workflow definition
 │   │   └── state.py             # State definition
 │   ├── tools/
@@ -101,7 +102,7 @@ edu-agent-service/
 └── README_EN.md                 # Project documentation (English)
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Environment Preparation
 
@@ -159,7 +160,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 
 After startup, visit: http://localhost:8080/docs
 
-## 📡 API Endpoints
+## API Endpoints
 
 ### Chat Endpoint
 
@@ -182,15 +183,15 @@ Response:
 }
 ```
 
-## 🔄 Workflow
+## Workflow
 
 1. **Intent Recognition**: Planner Agent analyzes user input, identifies intent (learn/quiz/score/explain)
 2. **Route Distribution**: Routes the request to the corresponding Agent based on intent
 3. **Task Execution**: Target Agent executes the specific task, may call RAG or database tools
 4. **Quality Review**: Critic Agent reviews output quality, can reject and redo (up to 2 times)
-5. **Data Persistence**: Memory Agent saves learning data to the database
+5. **Async Persistence**: After response is returned, BackgroundTasks asynchronously saves learning data to PostgreSQL and DashVector
 
-## 📊 Data Models
+## Data Models
 
 ### User Profile (UserProfile)
 - `user_id`: Unique user identifier
@@ -204,7 +205,7 @@ Response:
 - `user_answer`: User's answer
 - `ai_analysis`: AI analysis
 
-## 🔧 Configuration
+## Configuration
 
 All configurations are managed through environment variables. See `app/core/config.py` for details:
 
@@ -219,10 +220,10 @@ All configurations are managed through environment variables. See `app/core/conf
 | `DASHVECTOR_API_KEY` | DashVector API key | - |
 | `DASHVECTOR_ENDPOINT` | DashVector endpoint | - |
 
-## 🤝 Contributing
+## Contributing
 
 Issues and Pull Requests are welcome!
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License.

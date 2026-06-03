@@ -30,6 +30,6 @@ async def learner_node(state: AgentState, config: RunnableConfig) -> dict:
     result = await react_agent.ainvoke({"messages": messages}, config=config)
     draft = result["messages"][-1].content
     
-    print(f"👨‍🏫 [Learner Agent] 讲解草稿撰写完毕！(长度: {len(draft)})")
+    print(f"[Learner Agent] 讲解草稿撰写完毕！(长度: {len(draft)})")
     
     return {"draft_response": draft}

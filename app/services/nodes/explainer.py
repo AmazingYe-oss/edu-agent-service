@@ -8,7 +8,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 async def explainer_node(state: AgentState, config: RunnableConfig) -> dict:
-    print("👨‍🏫 [Explainer Agent] 特级辅导老师开始全副武装，准备为学生答疑解惑...")
+    print("[Explainer Agent] 特级辅导老师开始全副武装，准备为学生答疑解惑...")
     
     user_msg = state.get("user_message", "")
     current_kp = state.get("current_knowledge_point", "当前知识点")
@@ -36,5 +36,5 @@ async def explainer_node(state: AgentState, config: RunnableConfig) -> dict:
     result = await react_agent.ainvoke({"messages": messages}, config=config)
     explanation = result["messages"][-1].content
     
-    print("👨‍🏫 [Explainer Agent] 深度辅导内容生成完毕！")
+    print("[Explainer Agent] 深度辅导内容生成完毕！")
     return {"draft_response": explanation}

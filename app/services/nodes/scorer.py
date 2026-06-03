@@ -6,7 +6,7 @@ from langgraph.prebuilt import create_react_agent as create_agent
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 async def scorer_node(state: AgentState, config: RunnableConfig) -> dict:
-    print("💯 [Scorer Agent] 裁判正在查阅权威教材，核对学生答案...")
+    print("[Scorer Agent] 裁判正在查阅权威教材，核对学生答案...")
     
     user_answer = state.get("user_message", "")
     current_kp = state.get("current_knowledge_point", "通用知识")
@@ -40,7 +40,7 @@ async def scorer_node(state: AgentState, config: RunnableConfig) -> dict:
     if any(word in score_analysis for word in ["错", "不正确", "不完美", "误"]):
         is_approved = False
         
-    print(f"💯 [Scorer Agent] 批改完毕。判定结果 -> 【{'通过' if is_approved else '错误'}】")
+    print(f"[Scorer Agent] 批改完毕。判定结果 -> 【{'通过' if is_approved else '错误'}】")
     return {
         "draft_response": score_analysis,
         "is_approved": is_approved

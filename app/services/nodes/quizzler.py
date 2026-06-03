@@ -7,7 +7,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 async  def quizzler_node(state: AgentState, config: RunnableConfig) -> dict:
-    print("📝 [Quizzler Agent] 考官正在翻阅学生错题本，准备量身定制题目...")
+    print("[Quizzler Agent] 考官正在翻阅学生错题本，准备量身定制题目...")
     
     # 尝试从历史中或者上下文获取当前的知识点，如果没有就基于常识出题
     current_kp = state.get("current_knowledge_point", "通用常识")
@@ -34,5 +34,5 @@ async  def quizzler_node(state: AgentState, config: RunnableConfig) -> dict:
     result = await react_agent.ainvoke({"messages": messages}, config=config)
     quiz_content = result["messages"][-1].content
     
-    print("📝 [Quizzler Agent] 随堂测试题出好了！")
+    print("[Quizzler Agent] 随堂测试题出好了！")
     return {"draft_response": quiz_content}

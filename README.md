@@ -1,8 +1,8 @@
-# 🎓 Edu Multi-Agent Service
+# Edu Multi-Agent Service
 
 基于 **LangGraph** 的多智能体教育系统，通过多个专业 AI Agent 协作，为学生提供个性化的智能辅导服务。
 
-## ✨ 核心特性
+## 核心特性
 
 - **多智能体协作架构**：7 个专业 Agent 各司其职，协同完成教学任务
 - **智能意图识别**：自动分析学生需求，路由到最合适的教学节点
@@ -10,15 +10,15 @@
 - **个性化学习**：学生画像、错题本、知识掌握度追踪
 - **质量保证机制**：教导主任 Agent 审查内容，确保输出质量
 - **长期记忆系统**：Redis + PostgreSQL + DashVector 三层存储架构
+- **异步持久化**：使用 FastAPI BackgroundTasks 实现数据异步写入，提升响应速度
 
-## 🏗️ 系统架构
+## 系统架构
 
 ```
 用户输入
     ↓
 ┌─────────────┐
 │  Planner    │  ← 教学总监：分析意图，决定路由
-│  (指挥官)    │
 └─────────────┘
     ↓ (意图路由)
 ┌─────────────────────────────────────────────────────┐
@@ -35,13 +35,15 @@
 ┌─────────────┐
 │   Critic    │  ← 教导主任：质量审查（可打回重做）
 └─────────────┘
-    ↓
-┌─────────────┐
-│   Memory    │  ← 记忆系统：数据沉淀
-└─────────────┘
+    ↓ (同步返回响应)
+    ↓ (异步后台持久化)
+┌─────────────────────────────────────┐
+│  BackgroundTasks → PostgreSQL +     │
+│  DashVector (异步数据沉淀)           │
+└─────────────────────────────────────┘
 ```
 
-## 🤖 Agent 角色说明
+## Agent 角色说明
 
 | Agent | 角色 | 职责 | 使用工具 |
 |-------|------|------|----------|
@@ -51,9 +53,8 @@
 | **Scorer** | 阅卷裁判 | 批改作业，判定对错 | `search_knowledge_base` |
 | **Explainer** | 特级辅导老师 | 深入解析错题，提供解题思路 | `search_knowledge_base`, `check_error_book_tool` |
 | **Critic** | 教导主任 | 审查内容质量，可打回重做 | 结构化输出 |
-| **Memory** | 记忆系统 | 沉淀学习数据到数据库 | PostgreSQL, DashVector |
 
-## 🛠️ 技术栈
+## 技术栈
 
 - **Web 框架**：FastAPI + Uvicorn
 - **AI 框架**：LangChain + LangGraph
@@ -63,7 +64,7 @@
 - **缓存/状态存储**：Redis（阿里云）
 - **ORM**：SQLAlchemy 2.0
 
-## 📁 项目结构
+## 项目结构
 
 ```
 edu-agent-service/
@@ -86,8 +87,8 @@ edu-agent-service/
 │   │   │   ├── quizzler.py      # 智能出题
 │   │   │   ├── scorer.py        # 自动批改
 │   │   │   ├── explainer.py     # 错题解析
-│   │   │   ├── critic.py        # 质量审查
-│   │   │   └── memory.py        # 数据沉淀
+│   │   │   └── critic.py        # 质量审查
+│   │   ├── async_persistence.py # 异步持久化服务
 │   │   ├── graph.py             # LangGraph 工作流定义
 │   │   └── state.py             # 状态定义
 │   ├── tools/
@@ -100,7 +101,7 @@ edu-agent-service/
 └── README.md                    # 项目文档
 ```
 
-## 🚀 快速开始
+## 快速开始
 
 ### 1. 环境准备
 
@@ -158,7 +159,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 
 启动后访问：http://localhost:8080/docs
 
-## 📡 API 接口
+## API 接口
 
 ### 聊天接口
 
@@ -181,15 +182,15 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 }
 ```
 
-## 🔄 工作流程
+## 工作流程
 
 1. **意图识别**：Planner Agent 分析用户输入，识别意图（学习/出题/批改/解析）
 2. **路由分发**：根据意图将请求路由到对应的 Agent
 3. **任务执行**：目标 Agent 执行具体任务，可能调用 RAG 或数据库工具
 4. **质量审查**：Critic Agent 审查输出质量，不合格可打回重做（最多 2 次）
-5. **数据沉淀**：Memory Agent 将学习数据保存到数据库
+5. **异步持久化**：响应返回后，BackgroundTasks 异步将学习数据保存到 PostgreSQL 和 DashVector
 
-## 📊 数据模型
+## 数据模型
 
 ### 用户画像 (UserProfile)
 - `user_id`: 用户唯一标识
@@ -203,7 +204,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 - `user_answer`: 用户答案
 - `ai_analysis`: AI 分析
 
-## 🔧 配置说明
+## 配置说明
 
 所有配置通过环境变量管理，详见 `app/core/config.py`：
 
@@ -218,10 +219,10 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 | `DASHVECTOR_API_KEY` | DashVector API 密钥 | - |
 | `DASHVECTOR_ENDPOINT` | DashVector 端点 | - |
 
-## 🤝 贡献指南
+## 贡献指南
 
 欢迎提交 Issue 和 Pull Request！
 
-## 📄 许可证
+## 许可证
 
 本项目采用 MIT 许可证。

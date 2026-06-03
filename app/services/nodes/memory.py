@@ -7,7 +7,7 @@ from langchain_core.runnables import RunnableConfig
 
 async def memory_node(state: AgentState, config: RunnableConfig) -> dict:
     """注意新版本支持传入 config，我们可以从中提取 session_id"""
-    print("💾 [Memory Agent] 正在连接阿里云，沉淀业务数据...")
+    print("[Memory Agent] 正在连接阿里云，沉淀业务数据...")
     
     intent = state.get("next_agent")
     draft = state.get("draft_response", "")
@@ -35,7 +35,7 @@ async def memory_node(state: AgentState, config: RunnableConfig) -> dict:
                 )
                 db.add(new_error)
                 db.commit()
-                print(f"📓 【PG 数据库】发现错题，已存入 error_books 表！")
+                print("[PG 数据库] 发现错题，已存入 error_books 表！")
                 save_long_term_memory(user_id, session_id, f"用户在解答【{user_msg_content[:20]}】时做错了，原因是：{draft[:30]}")
 
         # 2. 用户画像逻辑 (Learn Agent)
@@ -50,7 +50,7 @@ async def memory_node(state: AgentState, config: RunnableConfig) -> dict:
             )
             db.execute(stmt)
             db.commit()
-            print("📈 【PG 数据库】用户知识点画像已更新！")
+            print("[PG 数据库] 用户知识点画像已更新！")
             save_long_term_memory(user_id, session_id, f"用户学习了新知识点：{user_intent}")
             
     except Exception as e:

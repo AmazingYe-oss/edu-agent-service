@@ -20,3 +20,4 @@ redis>=5.2.0
 
 # 向量存储
 dashvector
+rq
