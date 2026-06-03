@@ -7,7 +7,7 @@ from langgraph.prebuilt import create_react_agent as create_agent
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-def explainer_node(state: AgentState, config: RunnableConfig) -> dict:
+async def explainer_node(state: AgentState, config: RunnableConfig) -> dict:
     print("👨‍🏫 [Explainer Agent] 特级辅导老师开始全副武装，准备为学生答疑解惑...")
     
     user_msg = state.get("user_message", "")
@@ -22,7 +22,7 @@ def explainer_node(state: AgentState, config: RunnableConfig) -> dict:
 请结合你查到的所有信息，给他写一段深入浅出的错误原因分析和正确解题思路。语气要鼓励、温暖！
 """
 
-    llm = get_chat_model()
+    llm = get_chat_model().with_config({"tags": ["stream_to_user"]})
     # 装备两件神兵
     tools = [search_knowledge_base, check_error_book_tool]
     
@@ -33,7 +33,7 @@ def explainer_node(state: AgentState, config: RunnableConfig) -> dict:
         HumanMessage(content=f"学生说：'{user_msg}'。裁判的批改意见是：'{score_report}'。请开始辅导。")
     ]
     
-    result = react_agent.invoke({"messages": messages}, config=config)
+    result = await react_agent.ainvoke({"messages": messages}, config=config)
     explanation = result["messages"][-1].content
     
     print("👨‍🏫 [Explainer Agent] 深度辅导内容生成完毕！")

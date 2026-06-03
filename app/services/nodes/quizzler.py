@@ -6,7 +6,7 @@ from langgraph.prebuilt import create_react_agent as create_agent
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-def quizzler_node(state: AgentState, config: RunnableConfig) -> dict:
+async  def quizzler_node(state: AgentState, config: RunnableConfig) -> dict:
     print("📝 [Quizzler Agent] 考官正在翻阅学生错题本，准备量身定制题目...")
     
     # 尝试从历史中或者上下文获取当前的知识点，如果没有就基于常识出题
@@ -21,7 +21,7 @@ def quizzler_node(state: AgentState, config: RunnableConfig) -> dict:
 格式要求：给出题目情景、选项A B C D。不要直接给答案！
 """
 
-    llm = get_chat_model()
+    llm = get_chat_model().with_config({"tags": ["stream_to_user"]})
     tools = [check_error_book_tool]
     
     react_agent = create_agent(model=llm, tools=tools)
@@ -31,7 +31,7 @@ def quizzler_node(state: AgentState, config: RunnableConfig) -> dict:
         HumanMessage(content=f"请针对知识点【{current_kp}】出一道考题。")
     ]
     
-    result = react_agent.invoke({"messages": messages}, config=config)
+    result = await react_agent.ainvoke({"messages": messages}, config=config)
     quiz_content = result["messages"][-1].content
     
     print("📝 [Quizzler Agent] 随堂测试题出好了！")

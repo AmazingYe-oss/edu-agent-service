@@ -5,7 +5,7 @@ from langgraph.prebuilt import create_react_agent as create_agent
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-def planner_node(state: AgentState, config: RunnableConfig) -> dict:
+async def planner_node(state: AgentState, config: RunnableConfig) -> dict:
     print("🧠 [Planner Agent] 指挥官正在结合历史记忆与学生画像，分析用户意图...")
     
     user_message = state.get("user_message", "")
@@ -40,7 +40,7 @@ def planner_node(state: AgentState, config: RunnableConfig) -> dict:
     ]
     
     
-    result = react_agent.invoke({"messages": messages}, config=config)
+    result = await react_agent.ainvoke({"messages": messages}, config=config)
     ai_thought = result["messages"][-1].content
     
 

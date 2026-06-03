@@ -3,8 +3,8 @@ from app.core.llm import get_chat_model
 from app.tools.rag import search_knowledge_base
 from langgraph.prebuilt import create_react_agent as create_agent
 from langchain_core.messages import HumanMessage, SystemMessage
-
-def learner_node(state: AgentState) -> dict:
+from langchain_core.runnables import RunnableConfig
+async def learner_node(state: AgentState, config: RunnableConfig) -> dict:
     print(" [Learner Agent] 收到学习需求，开始自主思考是否需要查阅资料...")
     
     intent = state.get("user_intent", "")
@@ -19,7 +19,7 @@ def learner_node(state: AgentState) -> dict:
     if feedback and not state.get("is_approved"):
         system_prompt += f"\n\n【教导主任的打回意见】：{feedback}\n请务必针对上述意见修改你的讲解！"
 
-    llm = get_chat_model()
+    llm = get_chat_model().with_config({"tags": ["stream_to_user"]})
     tools = [search_knowledge_base] 
     
     react_agent = create_agent(model=llm, tools=tools)
@@ -27,7 +27,7 @@ def learner_node(state: AgentState) -> dict:
         SystemMessage(content=system_prompt),
         HumanMessage(content=f"用户的学习意图是：{intent}。请给我讲讲。")
     ]
-    result = react_agent.invoke({"messages": messages})
+    result = await react_agent.ainvoke({"messages": messages}, config=config)
     draft = result["messages"][-1].content
     
     print(f"👨‍🏫 [Learner Agent] 讲解草稿撰写完毕！(长度: {len(draft)})")

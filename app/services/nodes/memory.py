@@ -3,8 +3,9 @@ from app.core.database import SessionLocal
 from app.models.domain import ErrorBook, UserProfile
 from app.core.dashclient import save_long_term_memory
 from sqlalchemy.dialects.postgresql import insert
+from langchain_core.runnables import RunnableConfig
 
-def memory_node(state: AgentState, config: dict) -> dict:
+async def memory_node(state: AgentState, config: RunnableConfig) -> dict:
     """注意新版本支持传入 config，我们可以从中提取 session_id"""
     print("💾 [Memory Agent] 正在连接阿里云，沉淀业务数据...")
     

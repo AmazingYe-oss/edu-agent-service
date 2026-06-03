@@ -4,7 +4,7 @@ from typing import Optional
 class ChatRequest(BaseModel):
     message: str = Field(..., description="用户的输入信息")
     session_id: Optional[str] = Field("default", description="会话ID，后续做多轮记忆时使用")
-
+    user_id: Optional[str] = Field(None, description="用户ID，后续做用户个性化时使用")
 class ChatResponse(BaseModel):
     response: str|None = Field(None, description="Agent的最终回复")
     intent: Optional[str] = Field(None, description="大模型识别出的用户意图")

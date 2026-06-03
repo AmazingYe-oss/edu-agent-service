@@ -2,12 +2,13 @@ from pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
 from app.services.state import AgentState
 from app.core.llm import get_llm
+from langchain_core.runnables import RunnableConfig
 
 class CriticDecision(BaseModel):
     is_approved: bool = Field(description="审查是否通过。如果满足所有要求，返回 true；否则返回 false。")
     feedback: str = Field(description="如果未通过，给出严厉且具体的修改意见；如果通过，可以写'同意发布'。")
 
-def critic_node(state: AgentState) -> dict:
+async def critic_node(state: AgentState, config: RunnableConfig) -> dict:
     print("[Critic Agent] 教导主任开始审查内容质量...")
     
     draft = state.get("draft_response", "")
@@ -44,7 +45,7 @@ JSON 的 Key 必须严格是英文：
     decision: CriticDecision = chain.invoke({
         "context": context,
         "draft": draft
-    })
+    }, config=config)
     
     new_retry_count = current_retry + 1
     

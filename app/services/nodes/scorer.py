@@ -4,8 +4,8 @@ from app.core.llm import get_chat_model
 from app.tools.rag import search_knowledge_base
 from langgraph.prebuilt import create_react_agent as create_agent
 from langchain_core.messages import HumanMessage, SystemMessage
-
-def scorer_node(state: AgentState) -> dict:
+from langchain_core.runnables import RunnableConfig
+async def scorer_node(state: AgentState, config: RunnableConfig) -> dict:
     print("💯 [Scorer Agent] 裁判正在查阅权威教材，核对学生答案...")
     
     user_answer = state.get("user_message", "")
@@ -20,7 +20,7 @@ def scorer_node(state: AgentState) -> dict:
 2. 简短的分步判定理由。
 """
 
-    llm = get_chat_model()
+    llm = get_chat_model().with_config({"tags": ["stream_to_user"]})
     tools = [search_knowledge_base] # 给裁判分发 RAG 教材库工具
     
     react_agent = create_agent(model=llm, tools=tools)
@@ -31,7 +31,7 @@ def scorer_node(state: AgentState) -> dict:
     ]
     
     # 批改不需要传 user_id，所以这里不用特意传 config
-    result = react_agent.invoke({"messages": messages})
+    result = await react_agent.ainvoke({"messages": messages}, config=config)
     score_analysis = result["messages"][-1].content
     
     # 极其简易的启发式判断，用于告诉下游要不要落盘错题本
