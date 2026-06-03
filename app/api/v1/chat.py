@@ -31,22 +31,17 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks)
             ):
                 kind = event["event"]
 
-                # 1. 播报 Agent 切换状态
-                if kind == "on_chain_start":
+                # 只抓取大模型的输出，跳过状态播报
+                if kind == "on_chat_model_stream":
                     node_name = event.get("name", "")
-                    if node_name in ["planner", "learner_node", "critic_node"]:
-                        status_msg = f"\n\n[系统] 正在唤醒 {node_name}...\n"
-                        yield f"data: {json.dumps({'text': status_msg}, ensure_ascii=False)}\n\n"
-                        print(status_msg, end="", flush=True)
-
-                # 2. 抓取所有大模型的思考与吐字
-                elif kind == "on_chat_model_stream":
-                    chunk = event["data"]["chunk"].content
-                    if chunk:
-                        yield f"data: {json.dumps({'text': chunk}, ensure_ascii=False)}\n\n"
-                        print(chunk, end="", flush=True)
+                    # 过滤 critic_node 的流式输出
+                    if node_name != "critic_node":
+                        chunk = event["data"]["chunk"].content
+                        if chunk:
+                            yield f"data: {json.dumps({'text': chunk}, ensure_ascii=False)}\n\n"
+                            print(chunk, end="", flush=True)
                 
-                # 3. 收集最终状态
+                # 收集最终状态
                 elif kind == "on_chain_end":
                     node_name = event.get("name", "")
                     if node_name == "critic_node":

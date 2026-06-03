@@ -7,6 +7,7 @@ from langchain_core.runnables import RunnableConfig
 async def learner_node(state: AgentState, config: RunnableConfig) -> dict:
     print(" [Learner Agent] 收到学习需求，开始自主思考是否需要查阅资料...")
     
+    user_message = state.get("user_message", "")
     intent = state.get("user_intent", "")
     feedback = state.get("critic_feedback", "")
     
@@ -25,7 +26,7 @@ async def learner_node(state: AgentState, config: RunnableConfig) -> dict:
     react_agent = create_agent(model=llm, tools=tools)
     messages = [
         SystemMessage(content=system_prompt),
-        HumanMessage(content=f"用户的学习意图是：{intent}。请给我讲讲。")
+        HumanMessage(content=f"用户的学习意图是：{intent}。\n\n用户的具体问题是：{user_message}\n\n请根据用户的问题进行讲解。")
     ]
     result = await react_agent.ainvoke({"messages": messages}, config=config)
     draft = result["messages"][-1].content

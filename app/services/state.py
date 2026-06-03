@@ -5,6 +5,7 @@ class AgentState(TypedDict):
     """
     定义 LangGraph 在各个节点(Agent)间流转的全局状态
     """
+    user_message: Optional[str]      # 用户原始消息
     messages: List[BaseMessage]
     next_agent: Optional[str]        
     user_intent: Optional[str]      

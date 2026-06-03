@@ -56,6 +56,7 @@ async def planner_node(state: AgentState, config: RunnableConfig) -> dict:
         
     print(f"[Planner Agent] 意图分析完毕。决定路由给 -> 【{intent}】")
     return {
+        "user_message": user_message,  # 传递用户原始消息
         "user_intent": intent,
         "next_agent": intent  
     }
