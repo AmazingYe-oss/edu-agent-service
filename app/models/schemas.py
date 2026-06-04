@@ -29,3 +29,33 @@ class UserResponse(BaseModel):
     user_id: str = Field(..., description="用户ID")
     username: str = Field(..., description="用户名")
     message: str = Field(..., description="响应消息")
+
+
+# 会话相关 Schemas
+class SessionCreate(BaseModel):
+    title: Optional[str] = Field(None, description="会话标题，可选")
+
+
+class SessionResponse(BaseModel):
+    session_id: str = Field(..., description="会话ID")
+    title: Optional[str] = Field(None, description="会话标题")
+    created_at: str = Field(..., description="创建时间")
+    
+    class Config:
+        from_attributes = True
+
+
+class MessageResponse(BaseModel):
+    id: int = Field(..., description="消息ID")
+    role: str = Field(..., description="角色：user 或 assistant")
+    content: str = Field(..., description="消息内容")
+    intent: Optional[str] = Field(None, description="识别的意图")
+    created_at: str = Field(..., description="创建时间")
+    
+    class Config:
+        from_attributes = True
+
+
+class SessionWithMessages(BaseModel):
+    session: SessionResponse
+    messages: list[MessageResponse] = Field(default_factory=list, description="会话消息列表")

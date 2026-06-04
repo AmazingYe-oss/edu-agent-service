@@ -148,17 +148,17 @@ def show_register_form():
 
 def show_chat_page():
     """聊天页面"""
-    from pages.chat import render_chat_page
+    from components.chat import render_chat_page
     render_chat_page()
 
 def show_upload_page():
     """文件上传页面"""
-    from pages.upload import render_upload_page
+    from components.upload import render_upload_page
     render_upload_page()
 
 def show_records_page():
     """学习记录页面"""
-    from pages.records import render_records_page
+    from components.records import render_records_page
     render_records_page()
 
 if __name__ == "__main__":

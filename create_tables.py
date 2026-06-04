@@ -4,7 +4,7 @@
 """
 
 from app.core.database import engine, Base
-from app.models.domain import User, Session, UserProfile, ErrorBook
+from app.models.domain import User, Session, UserProfile, ErrorBook, Message
 
 
 def create_tables():
@@ -20,6 +20,7 @@ def create_tables():
     print("  - sessions")
     print("  - user_profiles")
     print("  - error_books")
+    print("  - messages")
 
 
 if __name__ == "__main__":

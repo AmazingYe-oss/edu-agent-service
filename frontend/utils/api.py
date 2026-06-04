@@ -97,7 +97,7 @@ def upload_files(
             
             response = client.post(api_url, files=file_data, data=data)
             
-            if response.status_code == 200:
+            if response.status_code in [200, 201]:
                 return {"success": True, "data": response.json()}
             else:
                 return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
@@ -115,4 +115,62 @@ def check_api_health() -> bool:
             response = client.get(f"{API_BASE_URL}/")
             return response.status_code == 200
     except:
+        return False
+
+
+# 会话管理相关 API
+def get_user_sessions(user_id: str) -> list:
+    """获取用户的所有会话"""
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(f"{API_BASE_URL}/api/v1/sessions", params={"user_id": user_id})
+            if response.status_code == 200:
+                return response.json()
+            return []
+    except Exception as e:
+        print(f"获取会话列表失败: {e}")
+        return []
+
+
+def get_session_messages(session_id: str) -> dict:
+    """获取会话详情（包含消息历史）"""
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(f"{API_BASE_URL}/api/v1/sessions/{session_id}")
+            if response.status_code == 200:
+                return response.json()
+            return {}
+    except Exception as e:
+        print(f"获取会话详情失败: {e}")
+        return {}
+
+
+def create_session(user_id: str, title: str = None) -> dict:
+    """创建新会话"""
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            payload = {}
+            if title:
+                payload["title"] = title
+            response = client.post(
+                f"{API_BASE_URL}/api/v1/sessions",
+                params={"user_id": user_id},
+                json=payload
+            )
+            if response.status_code == 200:
+                return response.json()
+            return {}
+    except Exception as e:
+        print(f"创建会话失败: {e}")
+        return {}
+
+
+def delete_session(session_id: str) -> bool:
+    """删除会话"""
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.delete(f"{API_BASE_URL}/api/v1/sessions/{session_id}")
+            return response.status_code == 200
+    except Exception as e:
+        print(f"删除会话失败: {e}")
         return False
