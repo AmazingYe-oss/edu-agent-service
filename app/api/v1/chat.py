@@ -2,6 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from langchain_core.messages import HumanMessage
 from langgraph.graph.state import Runnable, RunnableConfig
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 from app.core.database import get_db
 from app.models.domain import Session as SessionModel, Message
 from app.models.schemas import ChatRequest
@@ -37,6 +38,21 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks,
     db.add(user_message)
     db.commit()
     
+    # 从数据库加载历史消息（最近10条，避免Token爆炸）
+    history_messages = db.query(Message)\
+        .filter(Message.session_id == request.session_id)\
+        .order_by(desc(Message.created_at))\
+        .limit(10)\
+        .all()
+    history_messages.reverse()  # 反转为正序时间线
+    
+    # 格式化为Agent需要的格式
+    history = [
+        {"role": msg.role, "content": msg.content}
+        for msg in history_messages[:-1]  # 排除当前消息
+    ]
+    print(f"[API] 加载了 {len(history)} 条历史消息作为上下文")
+    
     config = RunnableConfig(
         configurable={
             "user_id": request.user_id,
@@ -55,7 +71,7 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks,
             final_state = {}
             
             async for event in edu_agent_app.astream_events(
-                {"user_message": request.message, "history": []},
+                {"user_message": request.message, "history": history},
                 config=config,
                 version="v2"
             ):
@@ -111,22 +127,20 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks,
                 session.title = title
                 db.commit()
         
-        # 流式输出完成后，触发异步持久化
+        # 流式输出完成后，触发异步持久化（所有意图都触发，由持久化层决定是否保存）
         intent = final_state.get("user_intent", "unknown")
         knowledge_point = final_state.get("current_knowledge_point", None)
         
-        # 只有 learn 和 score 意图需要持久化
-        if intent in ["learn", "score"]:
-            background_tasks.add_task(
-                persist_memory_async,
-                user_id=request.user_id,
-                session_id=request.session_id,
-                intent=intent,
-                user_message=request.message,
-                draft_response=final_state.get("draft_response", ""),
-                knowledge_point=knowledge_point
-            )
-            print(f"[API] 已添加异步持久化任务: intent={intent}")
+        background_tasks.add_task(
+            persist_memory_async,
+            user_id=request.user_id,
+            session_id=request.session_id,
+            intent=intent,
+            user_message=request.message,
+            draft_response=final_state.get("draft_response", ai_response),
+            knowledge_point=knowledge_point
+        )
+        print(f"[API] 已添加异步持久化任务: intent={intent}")
         
         yield "data: [DONE]\n\n"
 
