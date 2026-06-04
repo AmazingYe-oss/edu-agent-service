@@ -1,5 +1,5 @@
 # app/tools/web_search.py
-"""联网搜索工具 - 使用阿里云百炼联网搜索 MCP 或备用搜索 API"""
+"""联网搜索工具 - 使用阿里云百炼联网搜索 MCP"""
 
 import httpx
 import json
@@ -7,38 +7,65 @@ from langchain_core.tools import tool
 from app.core.config import settings
 
 
+# 阿里云百炼 MCP 联网搜索配置
+BAILIAN_MCP_URL = "https://dashscope.aliyuncs.com/api/v1/mcps/WebSearch/mcp"
+
+
 @tool
-def web_search(query: str, max_results: int = 3) -> str:
+def web_search(query: str, max_results: int = 5) -> str:
     """
     联网搜索工具：搜索互联网获取实时信息。
     当用户询问天气、新闻、实时信息等问题时使用此工具。
     
     Args:
         query: 搜索关键词
-        max_results: 返回结果数量，默认3条
+        max_results: 返回结果数量，默认5条
     
     Returns:
         搜索结果的文本摘要
     """
     try:
-        # 使用备用搜索 API (SerpAPI 或其他免费搜索服务)
-        # 这里使用一个简单的实现，实际项目中可以替换为阿里云 MCP
+        # 检查是否配置了搜索 API Key
+        if not settings.XIAOMI_API_KEY:
+            return "联网搜索未配置 API Key，请配置后使用。"
         
-        # 尝试使用阿里云百炼联网搜索 MCP
-        search_url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
-        
+        # 调用阿里云百炼 MCP 联网搜索
         headers = {
             "Authorization": f"Bearer {settings.XIAOMI_API_KEY}",
             "Content-Type": "application/json"
         }
         
-        # 使用 LLM 结合搜索的方式（简化版本）
-        # 实际生产环境应该接入真正的搜索 API
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+                "name": "web_search",
+                "arguments": {
+                    "query": query,
+                    "max_results": max_results
+                }
+            },
+            "id": 1
+        }
         
-        # 返回提示信息，让 LLM 自行处理
-        return f"搜索查询: {query}\n注意：当前搜索功能需要配置联网搜索 API Key。请使用已知信息回答用户问题，或建议用户自行搜索。"
+        # 使用 httpx 同步调用 MCP 服务
+        with httpx.Client(timeout=30) as client:
+            response = client.post(BAILIAN_MCP_URL, json=payload, headers=headers)
+            response.raise_for_status()
+            result = response.json()
         
+        # 解析 MCP 响应
+        if "result" in result and "content" in result["result"]:
+            content = result["result"]["content"]
+            if content and len(content) > 0:
+                return content[0].get("text", "搜索未返回结果")
+        
+        return "搜索未返回有效结果"
+        
+    except httpx.TimeoutException:
+        return "搜索请求超时，请稍后重试"
     except Exception as e:
+        print(f"[WebSearch Error] {e}")
         return f"搜索失败: {str(e)}"
 
 
@@ -57,10 +84,7 @@ def web_search_with_context(query: str, context: str = "") -> str:
     """
     try:
         full_query = f"{context} {query}" if context else query
-        
-        # 这里可以接入真正的搜索 API
-        # 目前返回提示信息
-        return f"搜索查询: {full_query}\n注意：联网搜索功能需要配置阿里云百炼 MCP API Key。"
+        return web_search.invoke({"query": full_query})
         
     except Exception as e:
         return f"搜索失败: {str(e)}"
