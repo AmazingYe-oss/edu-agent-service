@@ -30,7 +30,7 @@ async def summarizer_node(state: AgentState, config: RunnableConfig) -> dict:
 - 排版清晰，语气亲切
 - 保持专业性的同时易于理解"""
 
-    llm = get_chat_model().with_config({"tags": ["stream_to_user"]})
+    llm = get_chat_model().with_config({"tags": ["final_output"]})
     
     messages = [
         SystemMessage(content=system_prompt),
