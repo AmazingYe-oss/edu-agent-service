@@ -61,8 +61,8 @@ async def stream_chat(
                             if error:
                                 yield f"[错误] {error}"
                             elif text:
-                                # 过滤系统状态消息，只输出 AI 回复
-                                if "[系统]" not in text:
+                                # 过滤系统状态消息和critic审查结果
+                                if "[系统]" not in text and "is_approved" not in text and "feedback" not in text:
                                     yield text
                                     
                         except json.JSONDecodeError:

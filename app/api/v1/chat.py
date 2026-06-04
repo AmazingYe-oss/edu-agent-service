@@ -93,7 +93,7 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks,
                 user_id=request.user_id,
                 role="assistant",
                 content=ai_response,
-                intent=detected_intent
+                intent=final_state.get("user_intent", "unknown")
             )
             db.add(ai_message)
             db.commit()
