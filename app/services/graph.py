@@ -8,10 +8,11 @@ from app.services.nodes.explainer import explainer_node
 from app.services.nodes.critic import critic_node
 from app.services.nodes.summarizer import summarizer_node
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from psycopg_pool import AsyncConnectionPool
 from app.core.config import settings
 
-# 全局 checkpointer 实例（在 lifespan 中初始化）
-checkpointer = None
+# 全局 graph 实例
+edu_agent_app = None
 
 def route_from_planner(state: AgentState) -> str:
     next_agent = state.get("next_agent")
@@ -78,16 +79,24 @@ def build_graph(checkpointer=None):
         return workflow.compile(checkpointer=checkpointer)
     return workflow.compile()
 
-# 延迟初始化的 graph 实例
-edu_agent_app = None
-
 async def init_graph():
     """异步初始化 graph 和 checkpointer"""
-    global edu_agent_app, checkpointer
+    global edu_agent_app
     
-    checkpointer = AsyncPostgresSaver.from_conn_string(settings.POSTGRES_URL)
+    # 创建连接池
+    pool = AsyncConnectionPool(
+        conninfo=settings.POSTGRES_URL,
+        min_size=1,
+        max_size=10
+    )
+    await pool.open()
+    print("[Graph] PostgreSQL 连接池创建完成")
+    
+    # 创建 AsyncPostgresSaver 并初始化表
+    checkpointer = AsyncPostgresSaver(pool)
     await checkpointer.setup()
     print("[Graph] AsyncPostgresSaver 初始化完成，已创建 checkpoint 表")
     
+    # 编译 graph
     edu_agent_app = build_graph(checkpointer)
     print("[Graph] LangGraph 编译完成，已绑定 PostgreSQL checkpointer")
