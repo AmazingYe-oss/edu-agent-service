@@ -6,7 +6,7 @@ from sqlalchemy import desc
 from app.core.database import get_db
 from app.models.domain import Session as SessionModel, Message
 from app.models.schemas import ChatRequest
-from app.services.graph import edu_agent_app
+import app.services.graph as graph_module
 from app.services.async_persistence import persist_memory_async
 import json
 import uuid
@@ -17,8 +17,12 @@ router = APIRouter()
 
 @router.post("/chat")
 async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    # 检查 graph 是否已初始化
+    print(f"\n[DEBUG] chat_endpoint 被调用，message={request.message}, session_id={request.session_id}")
+    
+    # 检查 graph 是否已初始化（从模块获取最新值）
+    edu_agent_app = graph_module.edu_agent_app
     if edu_agent_app is None:
+        print("[ERROR] edu_agent_app 为 None，graph 未初始化！")
         return {"error": "服务正在初始化，请稍后重试"}
     
     # 自动创建会话（如果不存在）
@@ -55,13 +59,15 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks,
 
     async def event_generator():
         nonlocal ai_response
+        # 从模块获取最新的 graph 实例
+        current_graph = graph_module.edu_agent_app
         print(f"\n[API] 收到 {request.user_id} 在窗口 {request.session_id} 的流式请求...")
         try:
             # 收集最终状态用于异步持久化
             final_state = {}
             
             # AsyncPostgresSaver 会自动加载该 thread_id 的历史上下文
-            async for event in edu_agent_app.astream_events(
+            async for event in current_graph.astream_events(
                 {"user_message": request.message},
                 config=config,
                 version="v2"
