@@ -1,5 +1,5 @@
 import os
-from dashvector import Client
+from dashvector import Client, Doc
 from langchain_openai import OpenAIEmbeddings
 from app.core.config import settings
 
@@ -28,11 +28,17 @@ def save_long_term_memory(user_id: str, session_id: str, memory_text: str):
             
         vector = embeddings.embed_query(memory_text)
         
-        collection.insert({
-            "vector": vector,
-            "fields": {"user_id": user_id, "session_id": session_id, "text": memory_text}
-        })
-        print(f"[DashVector] 已为用户 {user_id} 存入长时记忆！")
+        # 使用 Doc 对象插入
+        ret = collection.insert(
+            Doc(
+                vector=vector,
+                fields={"user_id": user_id, "session_id": session_id, "text": memory_text}
+            )
+        )
+        if ret:
+            print(f"[DashVector] 已为用户 {user_id} 存入长时记忆！")
+        else:
+            print(f"[DashVector] 存储失败: {ret}")
     except Exception as e:
         print(f"[DashVector] 存储失败: {e}")
 
@@ -40,6 +46,10 @@ def search_long_term_memory(user_id: str, query: str, top_k: int = 2) -> str:
     """检索当前用户的专属长时记忆"""
     try:
         collection = dash_client.get(COLLECTION_NAME)
+        if not collection:
+            print(f"[DashVector] 找不到集合 {COLLECTION_NAME}")
+            return ""
+        
         vector = embeddings.embed_query(query)
         
         # 核心：过滤条件保证绝对不串号！
