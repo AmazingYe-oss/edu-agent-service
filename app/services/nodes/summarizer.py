@@ -28,7 +28,9 @@ async def summarizer_node(state: AgentState, config: RunnableConfig) -> dict:
 【输出要求】
 - 直接输出最终内容，不要包含任何元数据或JSON
 - 排版清晰，语气亲切
-- 保持专业性的同时易于理解"""
+- 保持专业性的同时易于理解
+- 【重要】数学公式格式：行内公式必须使用单美元符号 $f(x)$，整行公式必须使用双美元符号 $$f(x) = \frac{{a}}{{b}}$$
+- 【禁止】不要使用 \\( ... \\) 或 \\[ ... \\] 作为公式定界符"""
 
     llm = get_chat_model().with_config({"tags": ["final_output"]})
     

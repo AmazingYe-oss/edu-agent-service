@@ -3,9 +3,9 @@ from dashvector import Client
 from langchain_openai import OpenAIEmbeddings
 from app.core.config import settings
 
-# 初始化 OpenAI Embedding 模型 (用于把文本变成 1536 维的向量)
+# 初始化阿里云 DashScope Embedding 模型 (text-embedding-v3 输出 1024 维向量)
 embeddings = OpenAIEmbeddings(
-    model="tongyi-embedding-vision-flash-2026-03-06", 
+    model="text-embedding-v3", 
     openai_api_key=settings.EMBEDDING_API_KEY,
     openai_api_base=settings.EMBEDDING_API_URL
 )
