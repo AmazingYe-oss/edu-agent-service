@@ -4,8 +4,6 @@
 from app.services.state import AgentState
 from app.core.llm import get_chat_model
 from app.core.dashclient import search_long_term_memory
-from app.tools.database import get_user_profile_tool, search_user_memory_tool
-from langgraph.prebuilt import create_react_agent as create_agent
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
@@ -41,25 +39,18 @@ async def chitchat_node(state: AgentState, config: RunnableConfig) -> dict:
 【近期对话】
 {str(history[-5:]) if history else "这是对话开始"}
 
-【工具使用】
-- 如果需要查询用户的详细信息，可以使用 `get_user_profile_tool`
-- 如果需要搜索历史记忆，可以使用 `search_user_memory_tool`
-- 如果用户问的问题需要联网搜索最新信息，请告知用户你暂时无法联网，但可以基于已有知识回答
-
 请用自然、友好的语气回复用户。"""
     
-    llm = get_chat_model().with_config({"tags": ["final_output"]})  # 直接输出标记
-    tools = [get_user_profile_tool, search_user_memory_tool]
-    
-    react_agent = create_agent(model=llm, tools=tools)
+    # 直接调用 LLM，使用 final_output tag 以便前端捕获输出
+    llm = get_chat_model().with_config({"tags": ["final_output"]})
     
     messages = [
         SystemMessage(content=system_prompt),
         HumanMessage(content=user_message)
     ]
     
-    result = await react_agent.ainvoke({"messages": messages}, config=config)
-    response = result["messages"][-1].content
+    result = await llm.ainvoke(messages, config=config)
+    response = result.content
     
     print(f"[Chitchat Agent] 闲聊回复生成完毕！(长度: {len(response)})")
     
