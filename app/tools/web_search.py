@@ -38,15 +38,15 @@ def web_search(query: str, max_results: int = 5) -> str:
             "Accept": "application/json, text/event-stream"
         }
         
-        # MCP JSON-RPC 请求
+        # MCP JSON-RPC 请求 - 使用正确的工具名称 bailian_web_search
         payload = {
             "jsonrpc": "2.0",
             "method": "tools/call",
             "params": {
-                "name": "web_search",
+                "name": "bailian_web_search",
                 "arguments": {
                     "query": query,
-                    "max_results": max_results
+                    "count": max_results
                 }
             },
             "id": 1
