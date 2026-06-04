@@ -24,12 +24,13 @@ def web_search(query: str, max_results: int = 5) -> str:
     Returns:
         搜索结果的文本摘要
     """
+    api_key = settings.DASHSCOPE_API_KEY
+    print(f"[WebSearch] 开始搜索: {query}, API Key 是否存在: {bool(api_key)}")
+    
+    if not api_key:
+        return "联网搜索未配置 DASHSCOPE_API_KEY，请在 .env 中配置后使用。"
+    
     try:
-        # 检查是否配置了搜索 API Key
-        api_key = settings.DASHSCOPE_API_KEY
-        if not api_key:
-            return "联网搜索未配置 DASHSCOPE_API_KEY，请在 .env 中配置后使用。"
-        
         # 调用阿里云百炼 MCP 联网搜索 (StreamableHttp)
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -51,31 +52,38 @@ def web_search(query: str, max_results: int = 5) -> str:
             "id": 1
         }
         
-        print(f"[WebSearch] 搜索: {query}")
+        print(f"[WebSearch] 发送请求到: {BAILIAN_MCP_URL}")
         
         # 使用 httpx 同步调用 MCP 服务
         with httpx.Client(timeout=30.0) as client:
             response = client.post(BAILIAN_MCP_URL, json=payload, headers=headers)
+            print(f"[WebSearch] 响应状态码: {response.status_code}")
+            
             response.raise_for_status()
             
             # 处理响应（可能是 JSON 或 SSE）
             content_type = response.headers.get("content-type", "")
+            print(f"[WebSearch] Content-Type: {content_type}")
             
             if "text/event-stream" in content_type:
                 # SSE 响应，解析事件流
-                return _parse_sse_response(response.text)
+                result = _parse_sse_response(response.text)
+                print(f"[WebSearch] SSE 解析结果长度: {len(result)}")
+                return result
             else:
                 # JSON 响应
                 result = response.json()
+                print(f"[WebSearch] JSON 响应: {str(result)[:500]}")
                 return _parse_mcp_response(result)
         
     except httpx.TimeoutException:
+        print("[WebSearch] 请求超时")
         return "搜索请求超时，请稍后重试"
     except httpx.HTTPStatusError as e:
-        print(f"[WebSearch HTTP Error] {e.response.status_code}: {e.response.text}")
+        print(f"[WebSearch HTTP Error] {e.response.status_code}: {e.response.text[:500]}")
         return f"搜索请求失败 (HTTP {e.response.status_code})"
     except Exception as e:
-        print(f"[WebSearch Error] {e}")
+        print(f"[WebSearch Error] {type(e).__name__}: {e}")
         return f"搜索失败: {str(e)}"
 
 

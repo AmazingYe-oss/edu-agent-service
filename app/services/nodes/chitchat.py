@@ -30,6 +30,7 @@ async def chitchat_node(state: AgentState, config: RunnableConfig) -> dict:
     # 判断是否需要联网搜索（包含天气、新闻、实时信息等关键词）
     search_keywords = ["天气", "新闻", "最新", "今天", "现在", "实时", "价格", "股票", "比赛"]
     need_search = any(keyword in user_message for keyword in search_keywords)
+    print(f"[Chitchat Agent] 用户消息: {user_message}, need_search: {need_search}, 匹配关键词: {[k for k in search_keywords if k in user_message]}")
     
     search_result = ""
     if need_search:
@@ -37,9 +38,11 @@ async def chitchat_node(state: AgentState, config: RunnableConfig) -> dict:
         try:
             # 调用联网搜索工具
             search_result = web_search.invoke({"query": user_message})
-            print(f"[Chitchat Agent] 搜索完成，结果长度: {len(search_result)}")
+            print(f"[Chitchat Agent] 搜索完成，结果: {search_result[:200] if search_result else '空'}")
         except Exception as e:
             print(f"[Chitchat Agent] 联网搜索失败: {e}")
+            import traceback
+            traceback.print_exc()
     
     system_prompt = f"""你是一个友好、智能的 AI 助手。你可以和用户进行自然的闲聊对话。
 
