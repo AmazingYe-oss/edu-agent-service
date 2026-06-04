@@ -24,8 +24,15 @@ async def planner_node(state: AgentState, config: RunnableConfig) -> dict:
 - 用户在回答上一道题（包含A/B/C/D或具体答案） -> 输出：INTENT: score
 - 用户答错了题，在请求解析、或者对错题感到困惑 -> 输出：INTENT: explain
 
+【知识点提取】
+在路由标签之前，你必须输出：KP: <提取的知识点>
+例如：KP: 微积分-导数
+KP: 牛顿第一定律
+
 【极端重要：输出格式】
-你可以进行思考，但最终的决定必须是：INTENT: 对应标签。
+你可以进行思考，但最终的决定必须是：
+KP: 知识点名称
+INTENT: 对应标签。
 """
 
     llm = get_chat_model()
@@ -53,10 +60,20 @@ async def planner_node(state: AgentState, config: RunnableConfig) -> dict:
         intent = "explain"
     elif "INTENT: learn" in ai_thought:
         intent = "learn"
+    
+    # 提取知识点
+    knowledge_point = "通用知识"
+    if "KP:" in ai_thought:
+        try:
+            kp_line = [line for line in ai_thought.split("\n") if "KP:" in line][0]
+            knowledge_point = kp_line.split("KP:")[1].strip()
+        except:
+            pass
         
-    print(f"[Planner Agent] 意图分析完毕。决定路由给 -> 【{intent}】")
+    print(f"[Planner Agent] 意图分析完毕。决定路由给 -> 【{intent}】，知识点 -> 【{knowledge_point}】")
     return {
         "user_message": user_message,  # 传递用户原始消息
         "user_intent": intent,
+        "current_knowledge_point": knowledge_point,  # 传递知识点
         "next_agent": intent  
     }

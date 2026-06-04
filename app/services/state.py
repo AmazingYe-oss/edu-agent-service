@@ -9,6 +9,7 @@ class AgentState(TypedDict):
     messages: List[BaseMessage]
     next_agent: Optional[str]        
     user_intent: Optional[str]      
+    current_knowledge_point: Optional[str]  # 当前知识点
     retrieved_context: Optional[str] 
     draft_response: Optional[str]   
     retry_count: int                

@@ -45,10 +45,9 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks,
 
     # 收集 AI 回复
     ai_response = ""
-    detected_intent = "unknown"
 
     async def event_generator():
-        nonlocal ai_response, detected_intent
+        nonlocal ai_response
         print(f"\n[API] 收到 {request.user_id} 在窗口 {request.session_id} 的流式请求...")
         try:
             # 收集最终状态用于异步持久化
@@ -75,12 +74,11 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks,
                 # 收集最终状态
                 elif kind == "on_chain_end":
                     node_name = event.get("name", "")
-                    if node_name == "critic_node":
-                        # critic_node 结束时，收集状态
+                    # 收集所有节点的状态
+                    if node_name in ["planner", "learner_node", "quizzler_node", "scorer_node", "explainer_node", "critic_node"]:
                         output = event.get("data", {}).get("output", {})
                         if isinstance(output, dict):
                             final_state.update(output)
-                            detected_intent = output.get("user_intent", "unknown")  # 收集意图
 
         except Exception as e:
             print(f"\n[错误] 流式输出异常: {e}")
