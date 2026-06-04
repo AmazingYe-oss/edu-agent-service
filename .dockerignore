@@ -1,0 +1,27 @@
+# 忽略 Python 缓存
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 忽略本地虚拟环境 (非常重要！)
+.venv/
+venv/
+env/
+ENV/
+
+# 忽略 IDE 和系统临时文件
+.git/
+.gitignore
+.idea/
+.vscode/
+*.swp
+*.log
+.DS_Store
+
+# 忽略本地配置文件和密钥
+.env
+*.db

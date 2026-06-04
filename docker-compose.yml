@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  # 1. 后端服务 (FastAPI)
+  backend:
+    build: .
+    container_name: edu_backend
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+    restart: always
+
+  # 2. 前端服务 (Streamlit)
+  frontend:
+    build: .
+    container_name: edu_frontend
+    # 覆盖 Dockerfile 默认的 CMD，让它运行 Streamlit
+    command: streamlit run frontend/app.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend
+    restart: always
