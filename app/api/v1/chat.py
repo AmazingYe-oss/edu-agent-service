@@ -9,6 +9,7 @@ from app.services.graph import edu_agent_app
 from app.services.async_persistence import persist_memory_async
 import json
 import uuid
+import traceback
 from fastapi.responses import StreamingResponse
 
 router = APIRouter()
@@ -81,7 +82,9 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks,
                             final_state.update(output)
 
         except Exception as e:
+            error_detail = traceback.format_exc()
             print(f"\n[错误] 流式输出异常: {e}")
+            print(f"[错误详情] {error_detail}")
             yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
 
         print("\n[API] 流式输出完毕。")
