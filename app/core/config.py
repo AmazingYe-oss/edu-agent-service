@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     DASHVECTOR_ENDPOINT: str
     EMBEDDING_API_KEY: str
     EMBEDDING_API_URL: str
+    DASHSCOPE_API_KEY: str = ""
     
 
 

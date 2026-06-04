@@ -1,5 +1,5 @@
 # app/tools/web_search.py
-"""联网搜索工具 - 使用阿里云百炼联网搜索 MCP"""
+"""联网搜索工具 - 使用阿里云百炼联网搜索 MCP (StreamableHttp)"""
 
 import httpx
 import json
@@ -26,15 +26,18 @@ def web_search(query: str, max_results: int = 5) -> str:
     """
     try:
         # 检查是否配置了搜索 API Key
-        if not settings.XIAOMI_API_KEY:
-            return "联网搜索未配置 API Key，请配置后使用。"
+        api_key = settings.DASHSCOPE_API_KEY
+        if not api_key:
+            return "联网搜索未配置 DASHSCOPE_API_KEY，请在 .env 中配置后使用。"
         
-        # 调用阿里云百炼 MCP 联网搜索
+        # 调用阿里云百炼 MCP 联网搜索 (StreamableHttp)
         headers = {
-            "Authorization": f"Bearer {settings.XIAOMI_API_KEY}",
-            "Content-Type": "application/json"
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream"
         }
         
+        # MCP JSON-RPC 请求
         payload = {
             "jsonrpc": "2.0",
             "method": "tools/call",
@@ -48,25 +51,62 @@ def web_search(query: str, max_results: int = 5) -> str:
             "id": 1
         }
         
+        print(f"[WebSearch] 搜索: {query}")
+        
         # 使用 httpx 同步调用 MCP 服务
-        with httpx.Client(timeout=30) as client:
+        with httpx.Client(timeout=30.0) as client:
             response = client.post(BAILIAN_MCP_URL, json=payload, headers=headers)
             response.raise_for_status()
-            result = response.json()
-        
-        # 解析 MCP 响应
-        if "result" in result and "content" in result["result"]:
-            content = result["result"]["content"]
-            if content and len(content) > 0:
-                return content[0].get("text", "搜索未返回结果")
-        
-        return "搜索未返回有效结果"
+            
+            # 处理响应（可能是 JSON 或 SSE）
+            content_type = response.headers.get("content-type", "")
+            
+            if "text/event-stream" in content_type:
+                # SSE 响应，解析事件流
+                return _parse_sse_response(response.text)
+            else:
+                # JSON 响应
+                result = response.json()
+                return _parse_mcp_response(result)
         
     except httpx.TimeoutException:
         return "搜索请求超时，请稍后重试"
+    except httpx.HTTPStatusError as e:
+        print(f"[WebSearch HTTP Error] {e.response.status_code}: {e.response.text}")
+        return f"搜索请求失败 (HTTP {e.response.status_code})"
     except Exception as e:
         print(f"[WebSearch Error] {e}")
         return f"搜索失败: {str(e)}"
+
+
+def _parse_sse_response(sse_text: str) -> str:
+    """解析 SSE 响应"""
+    results = []
+    for line in sse_text.split("\n"):
+        if line.startswith("data: "):
+            try:
+                data = json.loads(line[6:])
+                if "result" in data and "content" in data["result"]:
+                    for content in data["result"]["content"]:
+                        if "text" in content:
+                            results.append(content["text"])
+            except json.JSONDecodeError:
+                continue
+    return "\n\n".join(results) if results else "搜索未返回有效结果"
+
+
+def _parse_mcp_response(result: dict) -> str:
+    """解析 MCP JSON 响应"""
+    if "result" in result and "content" in result["result"]:
+        content_list = result["result"]["content"]
+        if content_list:
+            texts = [c.get("text", "") for c in content_list if "text" in c]
+            return "\n\n".join(texts) if texts else "搜索未返回结果"
+    
+    if "error" in result:
+        return f"搜索错误: {result['error'].get('message', '未知错误')}"
+    
+    return "搜索未返回有效结果"
 
 
 @tool  
