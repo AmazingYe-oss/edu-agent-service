@@ -4,6 +4,7 @@
 from app.services.state import AgentState
 from app.core.llm import get_chat_model
 from app.core.dashclient import search_long_term_memory
+from app.tools.web_search import web_search
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
@@ -26,20 +27,38 @@ async def chitchat_node(state: AgentState, config: RunnableConfig) -> dict:
         except Exception as e:
             print(f"[Chitchat Agent] 长时记忆检索失败: {e}")
     
+    # 判断是否需要联网搜索（包含天气、新闻、实时信息等关键词）
+    search_keywords = ["天气", "新闻", "最新", "今天", "现在", "实时", "价格", "股票", "比赛"]
+    need_search = any(keyword in user_message for keyword in search_keywords)
+    
+    search_result = ""
+    if need_search:
+        print(f"[Chitchat Agent] 检测到需要联网搜索，关键词: {user_message}")
+        try:
+            # 调用联网搜索工具
+            search_result = web_search.invoke({"query": user_message})
+            print(f"[Chitchat Agent] 搜索完成，结果长度: {len(search_result)}")
+        except Exception as e:
+            print(f"[Chitchat Agent] 联网搜索失败: {e}")
+    
     system_prompt = f"""你是一个友好、智能的 AI 助手。你可以和用户进行自然的闲聊对话。
 
 【你的特点】
 - 语气亲切、自然，像朋友一样交流
 - 记住用户之前告诉你的信息
 - 可以聊任何话题，不限于学习
+- 如果用户问到需要联网搜索的问题（如天气、新闻等），请使用搜索结果回答
 
 【记忆信息】
 长期记忆：{long_term_memory if long_term_memory else "暂无"}
 
+【联网搜索结果】
+{search_result if search_result else "无需搜索或搜索未返回结果"}
+
 【近期对话】
 {str(history[-5:]) if history else "这是对话开始"}
 
-请用自然、友好的语气回复用户。"""
+请用自然、友好的语气回复用户。如果搜索结果为空但用户问的是实时信息，请告知用户你暂时无法获取实时数据。"""
     
     # 直接调用 LLM，使用 final_output tag 以便前端捕获输出
     llm = get_chat_model().with_config({"tags": ["final_output"]})
