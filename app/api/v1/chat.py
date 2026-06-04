@@ -90,8 +90,8 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks,
                 # 收集最终状态
                 elif kind == "on_chain_end":
                     node_name = event.get("name", "")
-                    # 收集所有节点的状态
-                    if node_name in ["planner", "learner_node", "quizzler_node", "scorer_node", "explainer_node", "critic_node"]:
+                    # 收集所有节点的状态（包括 chitchat_node）
+                    if node_name in ["planner", "learner_node", "quizzler_node", "scorer_node", "explainer_node", "critic_node", "chitchat_node"]:
                         output = event.get("data", {}).get("output", {})
                         if isinstance(output, dict):
                             final_state.update(output)

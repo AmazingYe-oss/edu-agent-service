@@ -23,11 +23,13 @@ async def planner_node(state: AgentState, config: RunnableConfig) -> dict:
 - 用户请求出题测试、或者你觉得他该做题了 -> 输出：INTENT: quiz
 - 用户在回答上一道题（包含A/B/C/D或具体答案） -> 输出：INTENT: score
 - 用户答错了题，在请求解析、或者对错题感到困惑 -> 输出：INTENT: explain
+- 用户在闲聊、打招呼、问与学习无关的问题、或者想聊天 -> 输出：INTENT: chitchat
 
 【知识点提取】
 在路由标签之前，你必须输出：KP: <提取的知识点>
 例如：KP: 微积分-导数
 KP: 牛顿第一定律
+如果用户在闲聊，可以输出：KP: 闲聊
 
 【极端重要：输出格式】
 你可以进行思考，但最终的决定必须是：
@@ -58,6 +60,8 @@ INTENT: 对应标签。
         intent = "score"
     elif "INTENT: explain" in ai_thought:
         intent = "explain"
+    elif "INTENT: chitchat" in ai_thought:
+        intent = "chitchat"
     elif "INTENT: learn" in ai_thought:
         intent = "learn"
     

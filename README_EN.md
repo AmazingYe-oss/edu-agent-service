@@ -4,13 +4,14 @@ A multi-agent education system based on **LangGraph**, providing personalized in
 
 ## Core Features
 
-- **Multi-Agent Collaborative Architecture**: 7 specialized agents work together to accomplish teaching tasks
+- **Multi-Agent Collaborative Architecture**: 8 specialized agents work together to accomplish teaching tasks
 - **Intelligent Intent Recognition**: Automatically analyze student needs and route to the most suitable teaching node
 - **RAG-Enhanced Generation**: Integrated vector database ensures knowledge explanation is based on authoritative textbooks
 - **Personalized Learning**: Student profiles, error books, and knowledge mastery tracking
 - **Quality Assurance Mechanism**: Critic Agent reviews content to ensure output quality
 - **Long-term Memory System**: Three-tier storage architecture with Redis + PostgreSQL + DashVector
 - **Asynchronous Persistence**: Uses FastAPI BackgroundTasks for async data writing, improving response speed
+- **General Chitchat Mode**: Support natural conversation for non-learning scenarios, direct output without review
 
 ## System Architecture
 
@@ -21,20 +22,24 @@ User Input
 │  Planner    │  ← Teaching Director: Analyze intent, determine routing
 └─────────────┘
     ↓ (Intent Routing)
-┌─────────────────────────────────────────────────────┐
-│                                                     │
-↓         ↓         ↓         ↓                       │
-┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐                  │
-│Learner│ │Quiz- │ │Score │ │Explain│                 │
-│(Tutor) │ │zler  │ │r     │ │er    │                  │
-│      │ │(Exam │ │(Judge) │ │(Tutor) │                │
-│      │ │Maker) │ │      │ │      │                  │
-└──────┘ └──────┘ └──────┘ └──────┘                  │
-│                                                     │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+↓         ↓         ↓         ↓         ↓                      │
+┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────────┐              │
+│Learner│ │Quiz- │ │Score │ │Explain│ │ Chitchat │              │
+│(Tutor)│ │zler  │ │r     │ │er    │ │ (Chat)   │              │
+│      │ │(Exam │ │(Judge)│ │(Tutor)│ │          │              │
+│      │ │Maker)│ │      │ │      │ │          │              │
+└──────┘ └──────┘ └──────┘ └──────┘ └──────────┘              │
+│    ↓ (Teaching nodes go through review)   ↓ (Direct output)   │
+└──────────────────────────────────────────────────────────────┘
     ↓
 ┌─────────────┐
 │   Critic    │  ← Teaching Director: Quality review (can reject and redo)
+└─────────────┘
+    ↓
+┌─────────────┐
+│ Summarizer  │  ← Summarizer: Generate final response
 └─────────────┘
     ↓ (Sync response return)
     ↓ (Async background persistence)
@@ -54,6 +59,8 @@ User Input
 | **Scorer** | Judge | Grade assignments, determine correctness | `search_knowledge_base` |
 | **Explainer** | Senior Tutor | In-depth analysis of wrong answers, provide problem-solving approaches | `search_knowledge_base`, `check_error_book_tool` |
 | **Critic** | Teaching Director | Review content quality, can reject and redo | Structured output |
+| **Summarizer** | Summarizer | Integrate review results, generate final response | None |
+| **Chitchat** | Chat Partner | General conversation, direct output without review | `get_user_profile_tool`, `search_user_memory_tool` |
 
 ## Tech Stack
 
@@ -88,7 +95,9 @@ edu-agent-service/
 │   │   │   ├── quizzler.py      # Intelligent question generation
 │   │   │   ├── scorer.py        # Automatic grading
 │   │   │   ├── explainer.py     # Error analysis
-│   │   │   └── critic.py        # Quality review
+│   │   │   ├── critic.py        # Quality review
+│   │   │   ├── summarizer.py    # Final response generation
+│   │   │   └── chitchat.py      # General chat
 │   │   ├── async_persistence.py # Async persistence service
 │   │   ├── graph.py             # LangGraph workflow definition
 │   │   └── state.py             # State definition
@@ -185,10 +194,12 @@ Response:
 
 ## Workflow
 
-1. **Intent Recognition**: Planner Agent analyzes user input, identifies intent (learn/quiz/score/explain)
+1. **Intent Recognition**: Planner Agent analyzes user input, identifies intent (learn/quiz/score/explain/chitchat)
 2. **Route Distribution**: Routes the request to the corresponding Agent based on intent
-3. **Task Execution**: Target Agent executes the specific task, may call RAG or database tools
-4. **Quality Review**: Critic Agent reviews output quality, can reject and redo (up to 2 times)
+3. **Task Execution**:
+   - Teaching intents (learn/quiz/score/explain) → Go through Critic review → Summarizer generates final response
+   - Chitchat intent → Direct output without review
+4. **Quality Review**: Critic Agent reviews teaching content quality, can reject and redo (up to 2 times)
 5. **Async Persistence**: After response is returned, BackgroundTasks asynchronously saves learning data to PostgreSQL and DashVector
 
 ## Data Models

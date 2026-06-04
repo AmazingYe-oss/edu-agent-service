@@ -7,6 +7,7 @@ from app.services.nodes.scorer import scorer_node
 from app.services.nodes.explainer import explainer_node
 from app.services.nodes.critic import critic_node
 from app.services.nodes.summarizer import summarizer_node
+from app.services.nodes.chitchat import chitchat_node
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg_pool import AsyncConnectionPool
 from app.core.config import settings
@@ -21,6 +22,7 @@ def route_from_planner(state: AgentState) -> str:
         "quiz": "quizzler_node",
         "score": "scorer_node",
         "explain": "explainer_node",
+        "chitchat": "chitchat_node",
         "direct": END
     }
     return mapping.get(next_agent, END)
@@ -59,17 +61,22 @@ def build_graph(checkpointer=None):
     workflow.add_node("explainer_node", explainer_node)
     workflow.add_node("critic_node", critic_node)
     workflow.add_node("summarizer_node", summarizer_node)
+    workflow.add_node("chitchat_node", chitchat_node)  # 新增：闲聊节点
     
     workflow.set_entry_point("planner")
     
     workflow.add_conditional_edges("planner", route_from_planner)
     
+    # 教学节点 -> critic 审查
     workflow.add_edge("learner_node", "critic_node")
     workflow.add_edge("quizzler_node", "critic_node")
     workflow.add_edge("scorer_node", "critic_node")
     workflow.add_edge("explainer_node", "critic_node")
     
     workflow.add_conditional_edges("critic_node", route_from_critic)
+    
+    # 闲聊节点直接输出，不经过 critic 和 summarizer
+    workflow.add_edge("chitchat_node", END)
     
     # 总结节点 -> END
     workflow.add_edge("summarizer_node", END)
