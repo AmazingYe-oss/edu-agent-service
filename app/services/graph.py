@@ -72,8 +72,10 @@ def build_graph():
     workflow.add_edge("summarizer_node", END)
     
 
-    memory = AsyncRedisSaver(redis_url=settings.REDIS_URL)
+    # 临时禁用 Redis checkpointer，等待库版本更新
+    # memory = AsyncRedisSaver(redis_url=settings.REDIS_URL)
+    # return workflow.compile(checkpointer=memory)
     
-    return workflow.compile(checkpointer=memory)
+    return workflow.compile()
 
 edu_agent_app = build_graph()
