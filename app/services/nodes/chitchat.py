@@ -5,7 +5,7 @@ from app.services.state import AgentState
 from app.core.llm import get_chat_model
 from app.core.dashclient import search_long_term_memory
 from app.tools.web_search import web_search
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.runnables import RunnableConfig
 
 
@@ -17,32 +17,46 @@ async def chitchat_node(state: AgentState, config: RunnableConfig) -> dict:
     user_id = state.get("user_id", "")
     history = state.get("history", [])
     
+    # 获取 LangGraph checkpointer 中的对话历史
+    chat_history = state.get("messages", [])
+    print(f"[Chitchat Agent] state 中的 history 长度: {len(history)}, messages 长度: {len(chat_history)}")
+    
     # 检索长时记忆
     long_term_memory = ""
     if user_id:
         try:
             long_term_memory = search_long_term_memory(user_id, user_message)
             if long_term_memory:
-                print(f"[Chitchat Agent] 检索到 {len(long_term_memory)} 字的长时记忆")
+                print(f"[Chitchat Agent] 检索到长时记忆: {long_term_memory[:100]}")
+            else:
+                print(f"[Chitchat Agent] 未检索到长时记忆")
         except Exception as e:
             print(f"[Chitchat Agent] 长时记忆检索失败: {e}")
+            import traceback
+            traceback.print_exc()
     
     # 判断是否需要联网搜索（包含天气、新闻、实时信息等关键词）
     search_keywords = ["天气", "新闻", "最新", "今天", "现在", "实时", "价格", "股票", "比赛"]
     need_search = any(keyword in user_message for keyword in search_keywords)
-    print(f"[Chitchat Agent] 用户消息: {user_message}, need_search: {need_search}, 匹配关键词: {[k for k in search_keywords if k in user_message]}")
+    print(f"[Chitchat Agent] 用户消息: {user_message}, need_search: {need_search}")
     
     search_result = ""
     if need_search:
-        print(f"[Chitchat Agent] 检测到需要联网搜索，关键词: {user_message}")
+        print(f"[Chitchat Agent] 检测到需要联网搜索")
         try:
-            # 调用联网搜索工具
             search_result = web_search.invoke({"query": user_message})
             print(f"[Chitchat Agent] 搜索完成，结果: {search_result[:200] if search_result else '空'}")
         except Exception as e:
             print(f"[Chitchat Agent] 联网搜索失败: {e}")
-            import traceback
-            traceback.print_exc()
+    
+    # 构建对话历史字符串（用于上下文）
+    history_str = ""
+    if history:
+        # 使用 state 中的 history
+        history_str = "\n".join([f"{msg.get('role', 'unknown')}: {msg.get('content', '')}" for msg in history[-5:]])
+    elif chat_history:
+        # 使用 checkpointer 中的 messages
+        history_str = "\n".join([f"{'用户' if isinstance(msg, HumanMessage) else 'AI'}: {msg.content}" for msg in chat_history[-5:]])
     
     system_prompt = f"""你是一个友好、智能的 AI 助手。你可以和用户进行自然的闲聊对话。
 
@@ -59,7 +73,7 @@ async def chitchat_node(state: AgentState, config: RunnableConfig) -> dict:
 {search_result if search_result else "无需搜索或搜索未返回结果"}
 
 【近期对话】
-{str(history[-5:]) if history else "这是对话开始"}
+{history_str if history_str else "这是对话开始"}
 
 请用自然、友好的语气回复用户。如果搜索结果为空但用户问的是实时信息，请告知用户你暂时无法获取实时数据。"""
     
