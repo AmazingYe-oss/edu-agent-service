@@ -1,14 +1,22 @@
 import os
 from dashvector import Client, Doc
-from langchain_openai import OpenAIEmbeddings
+from openai import OpenAI
 from app.core.config import settings
 
-# 初始化阿里云 DashScope Embedding 模型 (text-embedding-v3 输出 1024 维向量)
-embeddings = OpenAIEmbeddings(
-    model="text-embedding-v3", 
-    openai_api_key=settings.EMBEDDING_API_KEY,
-    openai_api_base=settings.EMBEDDING_API_URL
+# 初始化阿里云 DashScope Embedding 客户端
+embedding_client = OpenAI(
+    api_key=settings.EMBEDDING_API_KEY,
+    base_url=settings.EMBEDDING_API_URL
 )
+
+def get_embedding(text: str) -> list:
+    """获取文本的向量表示"""
+    response = embedding_client.embeddings.create(
+        model="text-embedding-v3",
+        input=text,
+        encoding_format="float"
+    )
+    return response.data[0].embedding
 
 # 初始化阿里云 DashVector 客户端
 dash_client = Client(
@@ -25,8 +33,9 @@ def save_long_term_memory(user_id: str, session_id: str, memory_text: str):
         if not collection:
             print(f" [DashVector] 找不到集合 {COLLECTION_NAME}，请确保在控制台已创建！")
             return
-            
-        vector = embeddings.embed_query(memory_text)
+        
+        vector = get_embedding(memory_text)
+        print(f"[DashVector Debug] vector len: {len(vector)}, sample: {vector[:3]}")
         
         # 使用 Doc 对象插入
         ret = collection.insert(
@@ -41,6 +50,8 @@ def save_long_term_memory(user_id: str, session_id: str, memory_text: str):
             print(f"[DashVector] 存储失败: {ret}")
     except Exception as e:
         print(f"[DashVector] 存储失败: {e}")
+        import traceback
+        traceback.print_exc()
 
 def search_long_term_memory(user_id: str, query: str, top_k: int = 2) -> str:
     """检索当前用户的专属长时记忆"""
@@ -50,7 +61,7 @@ def search_long_term_memory(user_id: str, query: str, top_k: int = 2) -> str:
             print(f"[DashVector] 找不到集合 {COLLECTION_NAME}")
             return ""
         
-        vector = embeddings.embed_query(query)
+        vector = get_embedding(query)
         
         # 核心：过滤条件保证绝对不串号！
         docs = collection.query(
