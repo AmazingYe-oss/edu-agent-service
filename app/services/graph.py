@@ -7,8 +7,8 @@ from app.services.nodes.scorer import scorer_node
 from app.services.nodes.explainer import explainer_node
 from app.services.nodes.critic import critic_node
 from app.services.nodes.summarizer import summarizer_node
-from redis import Redis
-from langgraph.checkpoint.redis import RedisSaver
+from redis import asyncio as aioredis
+from langgraph.checkpoint.redis.aio import AsyncRedisSaver
 from app.core.config import settings
 
 def route_from_planner(state: AgentState) -> str:
@@ -72,7 +72,7 @@ def build_graph():
     workflow.add_edge("summarizer_node", END)
     
 
-    memory = RedisSaver(settings.REDIS_URL)
+    memory = AsyncRedisSaver(redis_url=settings.REDIS_URL)
     
     return workflow.compile(checkpointer=memory)
 
