@@ -7,9 +7,11 @@ from app.services.nodes.scorer import scorer_node
 from app.services.nodes.explainer import explainer_node
 from app.services.nodes.critic import critic_node
 from app.services.nodes.summarizer import summarizer_node
-from redis import asyncio as aioredis
-from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from app.core.config import settings
+
+# 全局 checkpointer 实例（在 lifespan 中初始化）
+checkpointer = None
 
 def route_from_planner(state: AgentState) -> str:
     next_agent = state.get("next_agent")
@@ -45,7 +47,7 @@ def route_from_critic(state: AgentState) -> str:
         }
         return mapping.get(next_agent, END)
 
-def build_graph():
+def build_graph(checkpointer=None):
     workflow = StateGraph(AgentState)
     
     # 注册节点
@@ -55,7 +57,7 @@ def build_graph():
     workflow.add_node("scorer_node", scorer_node)
     workflow.add_node("explainer_node", explainer_node)
     workflow.add_node("critic_node", critic_node)
-    workflow.add_node("summarizer_node", summarizer_node)  # 总结节点
+    workflow.add_node("summarizer_node", summarizer_node)
     
     workflow.set_entry_point("planner")
     
@@ -71,11 +73,21 @@ def build_graph():
     # 总结节点 -> END
     workflow.add_edge("summarizer_node", END)
     
-
-    # 临时禁用 Redis checkpointer，等待库版本更新
-    # memory = AsyncRedisSaver(redis_url=settings.REDIS_URL)
-    # return workflow.compile(checkpointer=memory)
-    
+    # 编译时传入 checkpointer（如果有的话）
+    if checkpointer:
+        return workflow.compile(checkpointer=checkpointer)
     return workflow.compile()
 
-edu_agent_app = build_graph()
+# 延迟初始化的 graph 实例
+edu_agent_app = None
+
+async def init_graph():
+    """异步初始化 graph 和 checkpointer"""
+    global edu_agent_app, checkpointer
+    
+    checkpointer = AsyncPostgresSaver.from_conn_string(settings.POSTGRES_URL)
+    await checkpointer.setup()
+    print("[Graph] AsyncPostgresSaver 初始化完成，已创建 checkpoint 表")
+    
+    edu_agent_app = build_graph(checkpointer)
+    print("[Graph] LangGraph 编译完成，已绑定 PostgreSQL checkpointer")

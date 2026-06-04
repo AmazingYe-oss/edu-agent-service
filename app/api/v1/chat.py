@@ -17,6 +17,10 @@ router = APIRouter()
 
 @router.post("/chat")
 async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    # 检查 graph 是否已初始化
+    if edu_agent_app is None:
+        return {"error": "服务正在初始化，请稍后重试"}
+    
     # 自动创建会话（如果不存在）
     session = db.query(SessionModel).filter(SessionModel.session_id == request.session_id).first()
     if not session:
@@ -38,25 +42,11 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks,
     db.add(user_message)
     db.commit()
     
-    # 从数据库加载历史消息（最近10条，避免Token爆炸）
-    history_messages = db.query(Message)\
-        .filter(Message.session_id == request.session_id)\
-        .order_by(desc(Message.created_at))\
-        .limit(10)\
-        .all()
-    history_messages.reverse()  # 反转为正序时间线
-    
-    # 格式化为Agent需要的格式
-    history = [
-        {"role": msg.role, "content": msg.content}
-        for msg in history_messages[:-1]  # 排除当前消息
-    ]
-    print(f"[API] 加载了 {len(history)} 条历史消息作为上下文")
-    
+    # LangGraph config：使用 session_id 作为 thread_id，自动管理短期记忆
     config = RunnableConfig(
         configurable={
             "user_id": request.user_id,
-            "thread_id": request.session_id
+            "thread_id": request.session_id  # AsyncPostgresSaver 会根据 thread_id 自动恢复历史
         }
     )
 
@@ -70,8 +60,9 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks,
             # 收集最终状态用于异步持久化
             final_state = {}
             
+            # AsyncPostgresSaver 会自动加载该 thread_id 的历史上下文
             async for event in edu_agent_app.astream_events(
-                {"user_message": request.message, "history": history},
+                {"user_message": request.message},
                 config=config,
                 version="v2"
             ):

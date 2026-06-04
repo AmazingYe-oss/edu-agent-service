@@ -1,12 +1,26 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from app.api.v1 import chat, auth, session
+from app.services.graph import init_graph
 import uvicorn
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理"""
+    # 启动时初始化
+    print("[Startup] 正在初始化应用...")
+    await init_graph()
+    print("[Startup] 应用初始化完成")
+    yield
+    # 关闭时清理
+    print("[Shutdown] 应用正在关闭...")
 
 app = FastAPI(
     title="Edu Multi-Agent API",
     description="基于 LangGraph 的多智能体教育系统大脑",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS 配置（允许前端跨域请求）
