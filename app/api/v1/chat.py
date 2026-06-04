@@ -60,11 +60,11 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks,
             ):
                 kind = event["event"]
 
-                # 只抓取大模型的输出，跳过状态播报
+                # 只抓取总结节点的输出，跳过其他节点
                 if kind == "on_chat_model_stream":
                     node_name = event.get("name", "")
-                    # 过滤 critic_node 的流式输出
-                    if node_name != "critic_node":
+                    # 只输出 summarizer_node 的内容
+                    if node_name == "summarizer_node":
                         chunk = event["data"]["chunk"].content
                         if chunk:
                             ai_response += chunk  # 收集 AI 回复
