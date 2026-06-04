@@ -83,11 +83,12 @@ async def init_graph():
     """异步初始化 graph 和 checkpointer"""
     global edu_agent_app
     
-    # 创建连接池
+    # 创建连接池（设置 autocommit=True 以支持 CREATE INDEX CONCURRENTLY）
     pool = AsyncConnectionPool(
         conninfo=settings.POSTGRES_URL,
         min_size=1,
-        max_size=10
+        max_size=10,
+        kwargs={"autocommit": True}
     )
     await pool.open()
     print("[Graph] PostgreSQL 连接池创建完成")
