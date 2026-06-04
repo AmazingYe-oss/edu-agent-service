@@ -9,9 +9,12 @@
 - **RAG 检索增强**：集成向量数据库，确保知识讲解基于权威教材
 - **个性化学习**：学生画像、错题本、知识掌握度追踪
 - **质量保证机制**：教导主任 Agent 审查内容，确保输出质量
-- **长期记忆系统**：Redis + PostgreSQL + DashVector 三层存储架构
+- **双层记忆系统**：
+  - 短时记忆：PostgreSQL Checkpointer 自动保存对话历史
+  - 长时记忆：DashVector 向量库存储用户画像和学习记录
 - **异步持久化**：使用 FastAPI BackgroundTasks 实现数据异步写入，提升响应速度
 - **通用闲聊模式**：支持非学习场景的自然对话，直接输出不经过审查
+- **联网搜索**：集成阿里云百炼 MCP 联网搜索，支持实时信息查询
 
 ## 系统架构
 
@@ -28,7 +31,7 @@
 ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────────┐              │
 │Learner│ │Quiz- │ │Score │ │Explain│ │ Chitchat │              │
 │(私教) │ │zler  │ │r     │ │er    │ │ (闲聊)   │              │
-│      │ │(考官) │ │(裁判) │ │(辅导) │ │          │              │
+│      │ │(考官) │ │(裁判) │ │(辅导) │ │ +联网搜索│              │
 └──────┘ └──────┘ └──────┘ └──────┘ └──────────┘              │
 │    ↓ (教学节点经过审查)                  ↓ (直接输出)           │
 └──────────────────────────────────────────────────────────────┘
@@ -42,10 +45,9 @@
 └─────────────┘
     ↓ (同步返回响应)
     ↓ (异步后台持久化)
-┌─────────────────────────────────────┐
-│  BackgroundTasks → PostgreSQL +     │
-│  DashVector (异步数据沉淀)           │
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  BackgroundTasks → PostgreSQL + DashVector (异步数据沉淀)    │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Agent 角色说明
@@ -59,17 +61,63 @@
 | **Explainer** | 特级辅导老师 | 深入解析错题，提供解题思路 | `search_knowledge_base`, `check_error_book_tool` |
 | **Critic** | 教导主任 | 审查内容质量，可打回重做 | 结构化输出 |
 | **Summarizer** | 总结官 | 整合审查结果，生成最终回复 | 无 |
-| **Chitchat** | 闲聊伙伴 | 通用对话，直接输出不经过审查 | `get_user_profile_tool`, `search_user_memory_tool` |
+| **Chitchat** | 闲聊伙伴 | 通用对话，支持联网搜索 | `web_search` (阿里云百炼 MCP) |
+
+## 记忆系统
+
+### 短时记忆 (PostgreSQL Checkpointer)
+- 使用 LangGraph 的 `AsyncPostgresSaver` 自动保存对话历史
+- 基于 `thread_id`（即 `session_id`）自动恢复上下文
+- 支持多轮对话的连贯性
+
+### 长时记忆 (DashVector)
+- 用户画像：学习偏好、知识水平
+- 学习记录：已学知识点、错题记录
+- 闲聊记忆：用户个人信息（如姓名、兴趣）
+
+### 记忆保存流程
+```
+对话结束
+    ↓
+异步持久化服务 (BackgroundTasks)
+    ↓
+┌─────────────────────────────────────┐
+│ 1. 噪音过滤：拦截无价值对话          │
+│ 2. LLM 提炼：提取事实性记忆          │
+│ 3. 向量化：text-embedding-v3 (1024维)│
+│ 4. 存储：DashVector 向量库           │
+└─────────────────────────────────────┘
+```
+
+## 联网搜索
+
+集成阿里云百炼 MCP 联网搜索服务，支持实时信息查询：
+
+- **天气查询**：今天上海天气怎么样？
+- **新闻资讯**：最新的科技新闻
+- **实时信息**：股票价格、比赛结果等
+
+### 配置
+
+在 `.env` 中添加：
+```env
+DASHSCOPE_API_KEY=your-dashscope-api-key
+```
 
 ## 技术栈
 
-- **Web 框架**：FastAPI + Uvicorn
-- **AI 框架**：LangChain + LangGraph
-- **大语言模型**：支持 OpenAI 兼容 API（可切换为国产模型）
-- **向量数据库**：DashVector（阿里云）
-- **关系型数据库**：PostgreSQL（阿里云 RDS）
-- **缓存/状态存储**：Redis（阿里云）
-- **ORM**：SQLAlchemy 2.0
+| 组件 | 技术 |
+|------|------|
+| Web 框架 | FastAPI + Uvicorn |
+| AI 框架 | LangChain + LangGraph |
+| 大语言模型 | OpenAI 兼容 API |
+| 向量数据库 | DashVector (阿里云) |
+| 关系型数据库 | PostgreSQL (阿里云 RDS) |
+| 短时记忆 | PostgreSQL Checkpointer |
+| 联网搜索 | 阿里云百炼 MCP WebSearch |
+| Embedding | text-embedding-v3 (1024维) |
+| ORM | SQLAlchemy 2.0 |
+| 前端 | Streamlit |
 
 ## 项目结构
 
@@ -78,7 +126,8 @@ edu-agent-service/
 ├── app/
 │   ├── api/
 │   │   └── v1/
-│   │       └── chat.py          # API 路由定义
+│   │       ├── auth.py          # 用户认证 API
+│   │       └── chat.py          # 聊天 API
 │   ├── core/
 │   │   ├── config.py            # 配置管理
 │   │   ├── database.py          # 数据库连接
@@ -96,15 +145,20 @@ edu-agent-service/
 │   │   │   ├── explainer.py     # 错题解析
 │   │   │   ├── critic.py        # 质量审查
 │   │   │   ├── summarizer.py    # 总结回复
-│   │   │   └── chitchat.py      # 闲聊对话
+│   │   │   └── chitchat.py      # 闲聊对话 + 联网搜索
 │   │   ├── async_persistence.py # 异步持久化服务
 │   │   ├── graph.py             # LangGraph 工作流定义
 │   │   └── state.py             # 状态定义
 │   ├── tools/
 │   │   ├── database.py          # 数据库工具
 │   │   ├── rag.py               # RAG 工具
-│   │   └── rag_search.py        # RAG 搜索工具
+│   │   ├── rag_search.py        # RAG 搜索工具
+│   │   └── web_search.py        # 联网搜索工具 (MCP)
 │   └── main.py                  # 应用入口
+├── frontend/
+│   ├── pages/                   # Streamlit 页面
+│   ├── utils/                   # 工具函数
+│   └── app.py                   # 前端入口
 ├── .env.example                 # 环境变量示例
 ├── requirements.txt             # 依赖列表
 └── README.md                    # 项目文档
@@ -116,9 +170,9 @@ edu-agent-service/
 
 确保已安装 Python 3.9+，并准备好以下服务：
 - PostgreSQL 数据库
-- Redis 服务
 - DashVector 向量数据库（阿里云）
 - OpenAI 兼容的 LLM API
+- 阿里云百炼 API Key（用于联网搜索）
 
 ### 2. 安装依赖
 
@@ -138,35 +192,47 @@ cp .env.example .env
 
 ```env
 # LLM 配置
-OPENAI_API_KEY="your-llm-api-key"
-OPENAI_API_BASE="https://api.openai.com/v1"
-LLM_MODEL_NAME="gpt-4-turbo"
+XIAOMI_API_KEY=your-llm-api-key
+XIAOMI_BASE_URL=https://api.openai.com/v1
+XIAOMI_MODEL=gpt-4-turbo
 
 # RAG API 配置
-RAG_API_BASE_URL="http://localhost:8000"
+RAG_API_BASE_URL=http://localhost:8000
 
 # 数据库配置
-POSTGRES_URL="postgresql://user:password@host:port/database"
-REDIS_URL="redis://:password@host:port/db"
+POSTGRES_URL=postgresql://user:password@host:port/database
 
 # 向量数据库配置
-DASHVECTOR_API_KEY="your-api-key"
-DASHVECTOR_ENDPOINT="your-endpoint"
+DASHVECTOR_API_KEY=your-api-key
+DASHVECTOR_ENDPOINT=your-endpoint
+EMBEDDING_API_KEY=your-embedding-api-key
+EMBEDDING_API_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+
+# 阿里云百炼 MCP 联网搜索
+DASHSCOPE_API_KEY=your-dashscope-api-key
 ```
 
-### 4. 启动服务
+### 4. 初始化数据库
 
 ```bash
-# 开发模式（自动重载）
-python -m app.main
-
-# 或者使用 uvicorn
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
+python create_tables.py
 ```
 
-### 5. 访问 API 文档
+### 5. 启动服务
 
-启动后访问：http://localhost:8080/docs
+```bash
+# 启动后端
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+
+# 启动前端（新终端）
+cd frontend
+streamlit run app.py
+```
+
+### 6. 访问服务
+
+- 后端 API 文档：http://localhost:8080/docs
+- 前端界面：http://localhost:8501
 
 ## API 接口
 
@@ -178,18 +244,18 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 ```json
 {
   "message": "请帮我讲解一下牛顿第二定律",
-  "session_id": "optional-session-id"
+  "user_id": "user_123",
+  "session_id": "sess_456"
 }
 ```
 
-响应：
-```json
-{
-  "response": "牛顿第二定律是...",
-  "intent": "learn",
-  "agent_used": "learner_node"
-}
-```
+响应：SSE 流式输出
+
+### 会话管理
+
+**GET** `/api/v1/sessions?user_id=user_123`
+
+获取用户的会话列表
 
 ## 工作流程
 
@@ -197,38 +263,9 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 2. **路由分发**：根据意图将请求路由到对应的 Agent
 3. **任务执行**：
    - 教学类意图（learn/quiz/score/explain）→ 经过 Critic 审查 → Summarizer 总结
-   - 闲聊类意图（chitchat）→ 直接输出，不经过审查
+   - 闲聊类意图（chitchat）→ 直接输出，不经过审查，支持联网搜索
 4. **质量审查**：Critic Agent 审查教学类内容质量，不合格可打回重做（最多 2 次）
 5. **异步持久化**：响应返回后，BackgroundTasks 异步将学习数据保存到 PostgreSQL 和 DashVector
-
-## 数据模型
-
-### 用户画像 (UserProfile)
-- `user_id`: 用户唯一标识
-- `knowledge_state`: JSONB 格式的知识点掌握度
-- `learning_style`: 学习风格
-
-### 错题本 (ErrorBook)
-- `user_id`: 用户 ID
-- `knowledge_point`: 知识点
-- `question_content`: 题目内容
-- `user_answer`: 用户答案
-- `ai_analysis`: AI 分析
-
-## 配置说明
-
-所有配置通过环境变量管理，详见 `app/core/config.py`：
-
-| 变量名 | 说明 | 示例 |
-|--------|------|------|
-| `OPENAI_API_KEY` | LLM API 密钥 | `sk-xxx` |
-| `OPENAI_API_BASE` | LLM API 地址 | `https://api.openai.com/v1` |
-| `LLM_MODEL_NAME` | 模型名称 | `gpt-4-turbo` |
-| `RAG_API_BASE_URL` | RAG 服务地址 | `http://localhost:8000` |
-| `POSTGRES_URL` | PostgreSQL 连接串 | `postgresql://...` |
-| `REDIS_URL` | Redis 连接串 | `redis://...` |
-| `DASHVECTOR_API_KEY` | DashVector API 密钥 | - |
-| `DASHVECTOR_ENDPOINT` | DashVector 端点 | - |
 
 ## 贡献指南
 
