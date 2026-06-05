@@ -1,4 +1,4 @@
-# Edu Multi-Agent Service
+﻿# Edu Multi-Agent Service
 
 A multi-agent education system based on **LangGraph**, providing personalized intelligent tutoring services through the collaboration of multiple specialized AI Agents.
 
@@ -22,104 +22,47 @@ A multi-agent education system based on **LangGraph**, providing personalized in
 User Input
     ↓
 ┌─────────────┐
-│  Planner    │  ← Teaching Director: Analyze intent, determine routing
+│  Planner    │ → Teaching Director: Analyze intent, determine routing
 └─────────────┘
     ↓ (Intent Routing)
-┌──────────────────────────────────────────────────────────────┐
-│                                                              │
-↓         ↓         ↓         ↓         ↓                      │
-┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────────┐              │
-│Learner│ │Quiz- │ │Score │ │Explain│ │ Chitchat │              │
-│(Tutor)│ │zler  │ │r     │ │er    │ │ (Chat)   │              │
-│      │ │(Exam │ │(Judge)│ │(Tutor)│ │ +WebSearch│             │
-│      │ │Maker)│ │      │ │      │ │          │              │
-└──────┘ └──────┘ └──────┘ └──────┘ └──────────┘              │
-│    ↓ (Teaching nodes go through review)   ↓ (Direct output)   │
-└──────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                                                             │
+↓        ↓        ↓        ↓        ↓                     │
+┌──────┐┌──────┐┌──────┐┌──────┐┌──────────────┐             │
+│Learner││Quiz- ││Score ││Explain││  Chitchat    │             │
+│(Tutor)││ler   ││r     ││er    ││ (Chat)       │             │
+│     ││(Exam  ││(Judge)││(Tutor)││ +WebSearch   │             │
+│     ││Maker) ││     ││     ││              │             │
+└──────┘└──────┘└──────┘└──────┘└──────────────┘             │
+│   ↓ (Teaching nodes go through review)   ↓ (Direct output)   │
+└─────────────────────────────────────────────────────────────────┘
     ↓
 ┌─────────────┐
-│   Critic    │  ← Teaching Director: Quality review (can reject and redo)
+│  Critic     │ → Teaching Director: Quality review (can reject and redo)
 └─────────────┘
     ↓
 ┌─────────────┐
-│ Summarizer  │  ← Summarizer: Generate final response
+│Summarizer   │ → Summarizer: Generate final response
 └─────────────┘
     ↓ (Sync response return)
     ↓ (Async background persistence)
-┌─────────────────────────────────────────────────────────────┐
-│  BackgroundTasks → PostgreSQL + DashVector (Async persistence)│
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ BackgroundTasks → PostgreSQL + DashVector (Async persistence)│
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Agent Roles
 
 | Agent | Role | Responsibilities | Tools Used |
 |-------|------|------------------|------------|
-| **Planner** | Teaching Director | Analyze user intent, determine routing strategy | `get_user_profile_tool`, `search_user_memory_tool` |
-| **Learner** | Gold Tutor | Explain knowledge points, provide learning guidance | `search_knowledge_base` |
-| **Quizzler** | Exam Maker | Generate intelligent questions based on student weaknesses | `check_error_book_tool` |
-| **Scorer** | Judge | Grade assignments, determine correctness | `search_knowledge_base` |
-| **Explainer** | Senior Tutor | In-depth analysis of wrong answers, provide problem-solving approaches | `search_knowledge_base`, `check_error_book_tool` |
-| **Critic** | Teaching Director | Review content quality, can reject and redo | Structured output |
-| **Summarizer** | Summarizer | Integrate review results, generate final response | None |
-| **Chitchat** | Chat Partner | General conversation with web search support | `web_search` (Alibaba Cloud Bailian MCP) |
-
-## Memory System
-
-### Short-term Memory (PostgreSQL Checkpointer)
-- Uses LangGraph's `AsyncPostgresSaver` to automatically save conversation history
-- Automatically restores context based on `thread_id` (i.e., `session_id`)
-- Supports multi-turn conversation coherence
-
-### Long-term Memory (DashVector)
-- User profiles: learning preferences, knowledge level
-- Learning records: learned knowledge points, error records
-- Chitchat memories: user personal information (name, interests, etc.)
-
-### Memory Saving Process
-```
-Conversation End
-    ↓
-Async Persistence Service (BackgroundTasks)
-    ↓
-┌─────────────────────────────────────────┐
-│ 1. Noise Filtering: Intercept worthless │
-│ 2. LLM Extraction: Extract factual      │
-│ 3. Vectorization: text-embedding-v3     │
-│    (1024 dimensions)                    │
-│ 4. Storage: DashVector vector database  │
-└─────────────────────────────────────────┘
-```
-
-## Web Search
-
-Integrated Alibaba Cloud Bailian MCP WebSearch service for real-time information queries:
-
-- **Weather**: What's the weather like in Shanghai today?
-- **News**: Latest technology news
-- **Real-time Info**: Stock prices, match results, etc.
-
-### Configuration
-
-Add to `.env`:
-```env
-DASHSCOPE_API_KEY=your-dashscope-api-key
-```
-
-## Tech Stack
-
-| Component | Technology |
-|-----------|------------|
-| Web Framework | FastAPI + Uvicorn |
-| AI Framework | LangChain + LangGraph |
-| Large Language Model | OpenAI-compatible API |
-| Vector Database | DashVector (Alibaba Cloud) |
-| Relational Database | PostgreSQL (Alibaba Cloud RDS) |
-| Short-term Memory | PostgreSQL Checkpointer |
-| Web Search | Alibaba Cloud Bailian MCP WebSearch |
-| Embedding | text-embedding-v3 (1024 dimensions) |
-| ORM | SQLAlchemy 2.0 |
-| Frontend | Streamlit |
+| Planner | Teaching Director | Intent recognition, task routing | None |
+| Learner | Private Tutor | Knowledge explanation, concept teaching | RAG search, database |
+| Quizzler | Exam Maker | Intelligent question generation | RAG search, database |
+| Scorer | Judge | Automatic grading, score feedback | Database |
+| Explainer | Tutor | Error analysis, knowledge consolidation | RAG search, database |
+| Critic | Teaching Director | Content quality review | None |
+| Summarizer | Assistant | Generate final teaching response | None |
+| Chitchat | Chat Assistant | General conversation, web search | Web search (MCP) |
 
 ## Project Structure
 
@@ -127,76 +70,93 @@ DASHSCOPE_API_KEY=your-dashscope-api-key
 edu-agent-service/
 ├── app/
 │   ├── api/
-│   │   └── v1/
-│   │       ├── auth.py          # User authentication API
-│   │       └── chat.py          # Chat API
+│   │   └── chat.py                  # Chat API
 │   ├── core/
-│   │   ├── config.py            # Configuration management
-│   │   ├── database.py          # Database connection
-│   │   ├── dashclient.py        # DashVector client
-│   │   └── llm.py               # LLM initialization
+│   │   ├── config.py                # Configuration management
+│   │   ├── database.py              # Database connection
+│   │   ├── dashclient.py            # DashVector client
+│   │   └── llm.py                   # LLM initialization
 │   ├── models/
-│   │   ├── domain.py            # Database models
-│   │   └── schemas.py           # Pydantic models
+│   │   ├── domain.py                # Database models
+│   │   └── schemas.py               # Pydantic models
 │   ├── services/
 │   │   ├── nodes/
-│   │   │   ├── planner.py       # Intent recognition and routing
-│   │   │   ├── learner.py       # Knowledge explanation
-│   │   │   ├── quizzler.py      # Intelligent question generation
-│   │   │   ├── scorer.py        # Automatic grading
-│   │   │   ├── explainer.py     # Error analysis
-│   │   │   ├── critic.py        # Quality review
-│   │   │   ├── summarizer.py    # Final response generation
-│   │   │   └── chitchat.py      # General chat + Web search
-│   │   ├── async_persistence.py # Async persistence service
-│   │   ├── graph.py             # LangGraph workflow definition
-│   │   └── state.py             # State definition
+│   │   │   ├── planner.py           # Intent recognition and routing
+│   │   │   ├── learner.py           # Knowledge explanation
+│   │   │   ├── quizzler.py          # Intelligent question generation
+│   │   │   ├── scorer.py            # Automatic grading
+│   │   │   ├── explainer.py         # Error analysis
+│   │   │   ├── critic.py            # Quality review
+│   │   │   ├── summarizer.py        # Final response generation
+│   │   │   └── chitchat.py          # General chat + Web search
+│   │   ├── async_persistence.py     # Async persistence service
+│   │   ├── graph.py                 # LangGraph workflow definition
+│   │   └── state.py                 # State definition
 │   ├── tools/
-│   │   ├── database.py          # Database tools
-│   │   ├── rag.py               # RAG tools
-│   │   ├── rag_search.py        # RAG search tools
-│   │   └── web_search.py        # Web search tool (MCP)
-│   └── main.py                  # Application entry point
+│   │   ├── database.py              # Database tools
+│   │   ├── rag.py                   # RAG tools
+│   │   ├── rag_search.py            # RAG search tools
+│   │   └── web_search.py            # Web search tool (MCP)
+│   └── main.py                      # Application entry point
 ├── frontend/
-│   ├── pages/                   # Streamlit pages
-│   ├── utils/                   # Utility functions
-│   └── app.py                   # Frontend entry point
-├── .env.example                 # Environment variables example
-├── requirements.txt             # Dependencies list
-└── README_EN.md                 # Project documentation (English)
+│   ├── pages/                       # Streamlit pages
+│   ├── utils/                       # Utility functions
+│   └── app.py                       # Frontend entry point
+├── .github/workflows/
+│   └── main.yml                     # CI/CD pipeline
+├── .env.example                     # Environment variables example
+├── Dockerfile                       # Docker image build
+├── requirements.txt                 # Dependencies list
+└── README_EN.md                     # Project documentation (English)
 ```
 
-## Quick Start
+---
 
-### 1. Environment Preparation
+## Prerequisites
 
-Ensure Python 3.9+ is installed and prepare the following services:
-- PostgreSQL database
-- DashVector vector database (Alibaba Cloud)
-- OpenAI-compatible LLM API
-- Alibaba Cloud Bailian API Key (for web search)
+### Local Development
 
-### 2. Install Dependencies
+| Dependency | Version | Description |
+|------------|---------|-------------|
+| Python | 3.9+ | Runtime environment |
+| PostgreSQL | 12+ | Conversation history, user data storage |
+| DashVector | - | Alibaba Cloud vector database (RAG retrieval) |
+| OpenAI-compatible LLM | - | GPT-4 or other compatible API |
+| Alibaba Cloud Bailian API | - | Web search capability (optional) |
+
+### CI/CD and Deployment
+
+| Dependency | Description |
+|------------|-------------|
+| GitHub Repository | Code hosting and CI/CD trigger |
+| Alibaba Cloud ACR | Image storage |
+| Kubernetes Cluster | Application runtime |
+| ArgoCD | GitOps continuous deployment |
+| GitOps Config Repo | [edu-agent-service-gitops](https://github.com/AmazingYe-oss/edu-agent-service-gitops) |
+
+---
+
+## Quick Start (Local Development)
+
+### 1. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Configure Environment Variables
-
-Copy the environment variables example file and fill in the actual configuration:
+### 2. Configure Environment Variables
 
 ```bash
 cp .env.example .env
 ```
 
-Edit the `.env` file with the following configurations:
+Edit the `.env` file:
 
 ```env
 # LLM Configuration
-XIAOMI_API_KEY=your-llm-api-key
-XIAOMI_BASE_URL=https://api.openai.com/v1
-XIAOMI_MODEL=gpt-4-turbo
+OPENAI_API_KEY=your-llm-api-key
+OPENAI_API_BASE=https://api.openai.com/v1
+LLM_MODEL_NAME=gpt-4-turbo
 
 # RAG API Configuration
 RAG_API_BASE_URL=http://localhost:8000
@@ -204,23 +164,24 @@ RAG_API_BASE_URL=http://localhost:8000
 # Database Configuration
 POSTGRES_URL=postgresql://user:password@host:port/database
 
+# Redis Configuration
+REDIS_URL=redis://:password@host:port/0
+
 # Vector Database Configuration
 DASHVECTOR_API_KEY=your-api-key
 DASHVECTOR_ENDPOINT=your-endpoint
-EMBEDDING_API_KEY=your-embedding-api-key
-EMBEDDING_API_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 
 # Alibaba Cloud Bailian MCP WebSearch
 DASHSCOPE_API_KEY=your-dashscope-api-key
 ```
 
-### 4. Initialize Database
+### 3. Initialize Database
 
 ```bash
 python create_tables.py
 ```
 
-### 5. Start the Service
+### 4. Start the Service
 
 ```bash
 # Start backend
@@ -231,10 +192,123 @@ cd frontend
 streamlit run app.py
 ```
 
-### 6. Access the Service
+### 5. Access the Service
 
 - Backend API Documentation: http://localhost:8080/docs
 - Frontend Interface: http://localhost:8501
+
+---
+
+## Deployment
+
+This project uses **GitHub Actions + Alibaba Cloud ACR + ArgoCD GitOps** automated deployment pipeline.
+
+### Overall Flow
+
+```
+Code Push (main)
+    ↓
+GitHub Actions Triggered
+    ↓
+Build Docker Image
+    ↓
+Push to Alibaba Cloud ACR
+    ↓
+Update GitOps Repo Image Tag
+    ↓
+ArgoCD Detects Changes
+    ↓
+Auto-sync to Kubernetes Cluster
+```
+
+### Detailed Deployment Steps
+
+#### Step 1: Configure GitHub Secrets
+
+In the repository's **Settings → Secrets and variables → Actions → Repository secrets**, add:
+
+| Secret Name | Description |
+|-------------|-------------|
+| `ACR_USERNAME` | Alibaba Cloud ACR login username |
+| `ACR_PASSWORD` | Alibaba Cloud ACR login password |
+| `GITOPS_TOKEN` | GitHub PAT (requires `repo` permission for cross-repo push) |
+
+> ACR_REGISTRY, ACR_NAMESPACE, ACR_REPO are hardcoded in the workflow file, no additional configuration needed.
+
+#### Step 2: Push Code to Trigger CI
+
+```bash
+git add .
+git commit -m "your commit message"
+git push origin main
+```
+
+GitHub Actions will automatically:
+1. Checkout code
+2. Build Docker image
+3. Login to Alibaba Cloud ACR
+4. Push image (Tag: 8-char commit SHA + branch name)
+5. Update GitOps repo `kustomization.yaml` image tag
+
+#### Step 3: Deploy ArgoCD Application
+
+Apply ArgoCD configuration in Kubernetes cluster:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/AmazingYe-oss/edu-agent-service-gitops/main/argocd/application.yaml
+```
+
+ArgoCD will automatically:
+- Monitor the GitOps repo's `base/` directory
+- Auto-sync when image tag changes
+- Create namespace `edu-agent-service-dev`
+- Deploy Deployment, Service, Ingress and other resources
+
+#### Step 4: Verify Deployment
+
+```bash
+# Check Pod status
+kubectl get pods -n edu-agent-service-dev
+
+# Check Service
+kubectl get svc -n edu-agent-service-dev
+
+# Check Ingress
+kubectl get ingress -n edu-agent-service-dev
+
+# Check ArgoCD sync status
+argocd app get edu-agent-service
+```
+
+---
+
+## CI/CD Configuration
+
+### GitHub Actions Workflow
+
+File location: `.github/workflows/main.yml`
+
+**Triggers:**
+- Push to `main`, `master`, `release/*` branches
+- Manual trigger (workflow_dispatch)
+
+**Image Tag Strategy:**
+- `<8-char commit SHA>`: Unique identifier per build
+- `<branch name>`: Branch-level identifier
+- `latest`: Only for main/master branches
+
+**Image Address Format:**
+```
+crpi-he7mqvhihpnvi08o.cn-shanghai.personal.cr.aliyuncs.com/edu-agent-project/edu-agent-service:<tag>
+```
+
+### GitOps Configuration Repo
+
+Config repo: [edu-agent-service-gitops](https://github.com/AmazingYe-oss/edu-agent-service-gitops)
+
+CI pipeline automatically updates the image tag in `base/kustomization.yaml`. ArgoCD detects changes and auto-syncs to the cluster.
+
+---
 
 ## API Endpoints
 
@@ -268,6 +342,8 @@ Get user's session list
    - Chitchat intent → Direct output without review, supports web search
 4. **Quality Review**: Critic Agent reviews teaching content quality, can reject and redo (up to 2 times)
 5. **Async Persistence**: After response is returned, BackgroundTasks asynchronously saves learning data to PostgreSQL and DashVector
+
+---
 
 ## Contributing
 
