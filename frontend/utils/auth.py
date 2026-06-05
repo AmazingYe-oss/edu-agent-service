@@ -1,13 +1,14 @@
-"""
+﻿"""
 认证相关工具函数 - 调用后端 API
 """
 
+import os
 import streamlit as st
 import httpx
 from typing import Optional, Tuple
 
-# API 基础配置
-API_BASE_URL = "http://localhost:8080"
+# API 基础配置 - 优先使用环境变量，Docker 容器间通过服务名通信
+API_BASE_URL = os.getenv("API_BASE_URL", "http://backend:8080")
 
 
 def init_session_state():

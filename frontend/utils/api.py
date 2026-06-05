@@ -1,4 +1,4 @@
-"""
+﻿"""
 API 调用工具函数
 """
 
@@ -7,12 +7,12 @@ import json
 import streamlit as st
 from typing import Optional, AsyncGenerator
 import os
-from  dotenv import load_dotenv
+from dotenv import load_dotenv
 load_dotenv()
 
-# API 基础配置
-API_BASE_URL = "http://localhost:8080"
-RAG_API_BASE_URL=os.getenv('RAG_API_BASE_URL')
+# API 基础配置 - 优先使用环境变量，Docker 容器间通过服务名通信
+API_BASE_URL = os.getenv("API_BASE_URL", "http://backend:8080")
+RAG_API_BASE_URL = os.getenv("RAG_API_BASE_URL")
 
 
 async def stream_chat(
