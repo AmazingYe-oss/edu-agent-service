@@ -129,7 +129,7 @@ edu-agent-service/
 |------|------|
 | GitHub 仓库 | 代码托管与 CI/CD 触发 |
 | 阿里云容器镜像服务 (ACR) | 镜像存储 |
-| Kubernetes 集群 | 应用运行环境 |
+| Kubernetes 集群 | 应用运行环境（Docker Desktop / minikube / 云厂商托管） |
 | ArgoCD | GitOps 持续部署 |
 | GitOps 配置仓 | [edu-agent-service-gitops](https://github.com/AmazingYe-oss/edu-agent-service-gitops) |
 
@@ -222,7 +222,45 @@ ArgoCD 检测到变更
 
 ### 详细部署步骤
 
-#### 第一步：安装 ArgoCD（如尚未安装）
+#### 第零步：创建 Kubernetes 集群
+
+如果你还没有 K8s 集群，需要先创建一个。
+
+**方式一：Docker Desktop（推荐本地开发）**
+
+1. 打开 Docker Desktop → **Settings** → **Kubernetes**
+2. 勾选 **Enable Kubernetes**
+3. 点击 **Apply & Restart**，等待底部状态栏显示绿色 **Kubernetes running**
+4. 验证集群状态：
+
+```bash
+kubectl cluster-info
+kubectl get nodes
+# 应看到节点状态为 Ready
+```
+
+**方式二：minikube（轻量本地集群）**
+
+```bash
+# 安装 minikube 后
+minikube start
+kubectl cluster-info
+```
+
+**方式三：云厂商托管集群（生产环境推荐）**
+
+- 阿里云 ACK：https://www.aliyun.com/product/kubernetes
+- 腾讯云 TKE：https://cloud.tencent.com/product/tke
+- 华为云 CCE：https://www.huaweicloud.com/product/cce.html
+
+创建后下载 kubeconfig 文件，配置到本地：
+
+```bash
+export KUBECONFIG=/path/to/your/kubeconfig
+kubectl cluster-info
+```
+
+#### 第一步：安装 ArgoCD
 
 ```bash
 kubectl create namespace argocd
@@ -307,13 +345,18 @@ argocd app get edu-agent-service
 
 #### 第六步：访问服务
 
-部署完成后，通过 Ingress 域名或端口转发访问服务：
+部署完成后，通过端口转发访问服务：
 
 ```bash
 # 端口转发（开发调试用）
 kubectl port-forward svc/edu-agent-service 8080:80 -n edu-agent-service-dev
 
-# 查看 Ingress 地址
+# 然后访问 http://localhost:8080/docs
+```
+
+查看 Ingress 地址（如已配置域名解析）：
+
+```bash
 kubectl get ingress -n edu-agent-service-dev
 ```
 

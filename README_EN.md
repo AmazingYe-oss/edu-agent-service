@@ -130,7 +130,7 @@ edu-agent-service/
 |------------|-------------|
 | GitHub Repository | Code hosting and CI/CD trigger |
 | Alibaba Cloud ACR | Image storage |
-| Kubernetes Cluster | Application runtime |
+| Kubernetes Cluster | Application runtime (Docker Desktop / minikube / cloud managed) |
 | ArgoCD | GitOps continuous deployment |
 | GitOps Config Repo | [edu-agent-service-gitops](https://github.com/AmazingYe-oss/edu-agent-service-gitops) |
 
@@ -223,7 +223,45 @@ Auto-sync to Kubernetes Cluster
 
 ### Detailed Deployment Steps
 
-#### Step 1: Install ArgoCD (if not already installed)
+#### Step 0: Create a Kubernetes Cluster
+
+If you don't have a K8s cluster yet, you need to create one first.
+
+**Option 1: Docker Desktop (Recommended for local development)**
+
+1. Open Docker Desktop → **Settings** → **Kubernetes**
+2. Check **Enable Kubernetes**
+3. Click **Apply & Restart**, wait for the bottom status bar to show green **Kubernetes running**
+4. Verify cluster status:
+
+```bash
+kubectl cluster-info
+kubectl get nodes
+# Should see node status as Ready
+```
+
+**Option 2: minikube (Lightweight local cluster)**
+
+```bash
+# After installing minikube
+minikube start
+kubectl cluster-info
+```
+
+**Option 3: Cloud-managed cluster (Recommended for production)**
+
+- Alibaba Cloud ACK: https://www.aliyun.com/product/kubernetes
+- Tencent Cloud TKE: https://cloud.tencent.com/product/tke
+- Huawei Cloud CCE: https://www.huaweicloud.com/product/cce.html
+
+After creation, download the kubeconfig file and configure it locally:
+
+```bash
+export KUBECONFIG=/path/to/your/kubeconfig
+kubectl cluster-info
+```
+
+#### Step 1: Install ArgoCD
 
 ```bash
 kubectl create namespace argocd
@@ -308,13 +346,18 @@ argocd app get edu-agent-service
 
 #### Step 6: Access the Service
 
-After deployment, access the service via Ingress domain or port forwarding:
+After deployment, access the service via port forwarding:
 
 ```bash
 # Port forward (for development/debugging)
 kubectl port-forward svc/edu-agent-service 8080:80 -n edu-agent-service-dev
 
-# Check Ingress address
+# Then access http://localhost:8080/docs
+```
+
+Check Ingress address (if domain is configured):
+
+```bash
 kubectl get ingress -n edu-agent-service-dev
 ```
 
