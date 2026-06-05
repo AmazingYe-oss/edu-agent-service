@@ -16,6 +16,8 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.short_sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -68,3 +70,40 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  update-gitops:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: AmazingYe-oss/edu-agent-service-gitops
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: gitops
+
+      - name: Update image tag in kustomization
+        working-directory: gitops/base
+        run: |
+          IMAGE="${ACR_REGISTRY}/${ACR_NAMESPACE}/${ACR_REPO}"
+          TAG="${{ needs.build-and-push.outputs.image_tag }}"
+
+          sed -i "s|newName:.*|newName: ${IMAGE}|" kustomization.yaml
+          sed -i "s|newTag:.*|newTag: ${TAG}|" kustomization.yaml
+
+          echo "Updated image tag to: ${TAG}"
+
+      - name: Commit and push changes
+        working-directory: gitops
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git add base/kustomization.yaml
+          git commit -m "chore: update image tag to ${{ needs.build-and-push.outputs.image_tag }}"
+          git push
