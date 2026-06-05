@@ -223,7 +223,20 @@ Auto-sync to Kubernetes Cluster
 
 ### Detailed Deployment Steps
 
-#### Step 1: Configure GitHub Secrets
+#### Step 1: Install ArgoCD (if not already installed)
+
+```bash
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+```
+
+Wait for ArgoCD to be ready:
+
+```bash
+kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s
+```
+
+#### Step 2: Configure GitHub Secrets
 
 In the repository's **Settings → Secrets and variables → Actions → Repository secrets**, add:
 
@@ -235,7 +248,7 @@ In the repository's **Settings → Secrets and variables → Actions → Reposit
 
 > ACR_REGISTRY, ACR_NAMESPACE, ACR_REPO are hardcoded in the workflow file, no additional configuration needed.
 
-#### Step 2: Push Code to Trigger CI
+#### Step 3: Push Code to Trigger CI
 
 ```bash
 git add .
@@ -250,12 +263,25 @@ GitHub Actions will automatically:
 4. Push image (Tag: 8-char commit SHA + branch name)
 5. Update GitOps repo `kustomization.yaml` image tag
 
-#### Step 3: Deploy ArgoCD Application
+#### Step 4: Deploy ArgoCD Application
 
 Apply ArgoCD configuration in Kubernetes cluster:
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/AmazingYe-oss/edu-agent-service-gitops/main/argocd/application.yaml
+```
+
+Or via ArgoCD CLI:
+
+```bash
+argocd app create edu-agent-service \
+  --repo https://github.com/AmazingYe-oss/edu-agent-service-gitops.git \
+  --path base \
+  --dest-server https://kubernetes.default.svc \
+  --dest-namespace edu-agent-service-dev \
+  --sync-policy automated \
+  --auto-prune \
+  --self-heal
 ```
 
 ArgoCD will automatically:
@@ -264,7 +290,7 @@ ArgoCD will automatically:
 - Create namespace `edu-agent-service-dev`
 - Deploy Deployment, Service, Ingress and other resources
 
-#### Step 4: Verify Deployment
+#### Step 5: Verify Deployment
 
 ```bash
 # Check Pod status
@@ -278,6 +304,18 @@ kubectl get ingress -n edu-agent-service-dev
 
 # Check ArgoCD sync status
 argocd app get edu-agent-service
+```
+
+#### Step 6: Access the Service
+
+After deployment, access the service via Ingress domain or port forwarding:
+
+```bash
+# Port forward (for development/debugging)
+kubectl port-forward svc/edu-agent-service 8080:80 -n edu-agent-service-dev
+
+# Check Ingress address
+kubectl get ingress -n edu-agent-service-dev
 ```
 
 ---
@@ -307,6 +345,20 @@ crpi-he7mqvhihpnvi08o.cn-shanghai.personal.cr.aliyuncs.com/edu-agent-project/edu
 Config repo: [edu-agent-service-gitops](https://github.com/AmazingYe-oss/edu-agent-service-gitops)
 
 CI pipeline automatically updates the image tag in `base/kustomization.yaml`. ArgoCD detects changes and auto-syncs to the cluster.
+
+### GitOps Config Repo Structure
+
+```
+edu-agent-service-gitops/
+├── argocd/
+│   └── application.yaml        # ArgoCD Application manifest
+└── base/
+    ├── development.yaml        # Deployment + Service
+    ├── ingress.yaml            # Ingress configuration
+    └── kustomization.yaml      # Kustomize main config (image tag auto-updated by CI)
+```
+
+For more details, see: [edu-agent-service-gitops README](https://github.com/AmazingYe-oss/edu-agent-service-gitops)
 
 ---
 

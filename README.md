@@ -222,7 +222,20 @@ ArgoCD 检测到变更
 
 ### 详细部署步骤
 
-#### 第一步：配置 GitHub Secrets
+#### 第一步：安装 ArgoCD（如尚未安装）
+
+```bash
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+```
+
+等待 ArgoCD 就绪：
+
+```bash
+kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s
+```
+
+#### 第二步：配置 GitHub Secrets
 
 在仓库的 **Settings → Secrets and variables → Actions → Repository secrets** 中添加：
 
@@ -234,7 +247,7 @@ ArgoCD 检测到变更
 
 > ACR_REGISTRY、ACR_NAMESPACE、ACR_REPO 已在工作流文件中硬编码，无需额外配置。
 
-#### 第二步：推送代码触发 CI
+#### 第三步：推送代码触发 CI
 
 ```bash
 git add .
@@ -249,12 +262,25 @@ GitHub Actions 会自动执行：
 4. 推送镜像（Tag 为 8 位 commit SHA + 分支名）
 5. 更新 GitOps 仓库 `kustomization.yaml` 中的镜像 Tag
 
-#### 第三步：部署 ArgoCD Application
+#### 第四步：部署 ArgoCD Application
 
 在 Kubernetes 集群中应用 ArgoCD 配置：
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/AmazingYe-oss/edu-agent-service-gitops/main/argocd/application.yaml
+```
+
+或者通过 ArgoCD CLI：
+
+```bash
+argocd app create edu-agent-service \
+  --repo https://github.com/AmazingYe-oss/edu-agent-service-gitops.git \
+  --path base \
+  --dest-server https://kubernetes.default.svc \
+  --dest-namespace edu-agent-service-dev \
+  --sync-policy automated \
+  --auto-prune \
+  --self-heal
 ```
 
 ArgoCD 会自动：
@@ -263,7 +289,7 @@ ArgoCD 会自动：
 - 创建命名空间 `edu-agent-service-dev`
 - 部署 Deployment、Service、Ingress 等资源
 
-#### 第四步：验证部署
+#### 第五步：验证部署
 
 ```bash
 # 查看 Pod 状态
@@ -277,6 +303,18 @@ kubectl get ingress -n edu-agent-service-dev
 
 # 查看 ArgoCD 同步状态
 argocd app get edu-agent-service
+```
+
+#### 第六步：访问服务
+
+部署完成后，通过 Ingress 域名或端口转发访问服务：
+
+```bash
+# 端口转发（开发调试用）
+kubectl port-forward svc/edu-agent-service 8080:80 -n edu-agent-service-dev
+
+# 查看 Ingress 地址
+kubectl get ingress -n edu-agent-service-dev
 ```
 
 ---
@@ -306,6 +344,20 @@ crpi-he7mqvhihpnvi08o.cn-shanghai.personal.cr.aliyuncs.com/edu-agent-project/edu
 配置仓地址：[edu-agent-service-gitops](https://github.com/AmazingYe-oss/edu-agent-service-gitops)
 
 CI 流水线会自动更新 `base/kustomization.yaml` 中的镜像 Tag，ArgoCD 检测到变更后自动同步到集群。
+
+### GitOps 配置仓结构
+
+```
+edu-agent-service-gitops/
+├── argocd/
+│   └── application.yaml        # ArgoCD Application 清单
+└── base/
+    ├── development.yaml        # Deployment + Service
+    ├── ingress.yaml            # Ingress 配置
+    └── kustomization.yaml      # Kustomize 主配置（镜像 Tag 由 CI 自动更新）
+```
+
+更多配置仓说明请参阅：[edu-agent-service-gitops README](https://github.com/AmazingYe-oss/edu-agent-service-gitops)
 
 ---
 
