@@ -1,68 +1,108 @@
-﻿# Edu Multi-Agent Service
+﻿# Edu Multi-Agent Service — Multi-Agent Education Tutoring System
 
-A multi-agent education system based on **LangGraph**, providing personalized intelligent tutoring services through the collaboration of multiple specialized AI Agents.
+![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi)
+![Streamlit](https://img.shields.io/badge/Streamlit-UI-FF4B4B?logo=streamlit)
+![LangGraph](https://img.shields.io/badge/LangGraph-Multi_Agent-000000?logo=langchain)
+![Docker](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-Ready-blue?logo=kubernetes)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Conversation_History-336791?logo=postgresql)
+![Redis](https://img.shields.io/badge/Redis-Session_Cache-dc382d?logo=redis)
+![DashVector](https://img.shields.io/badge/DashVector-Vector_Retrieval-00c4b4)
+![CI/CD](https://img.shields.io/badge/CI-GitHub_Actions-green?logo=github-actions)
+![GitOps](https://img.shields.io/badge/GitOps-ArgoCD-orange?logo=argo)
 
-## Core Features
+## Project Overview
 
-- **Multi-Agent Collaborative Architecture**: 8 specialized agents work together to accomplish teaching tasks
-- **Intelligent Intent Recognition**: Automatically analyze student needs and route to the most suitable teaching node
-- **RAG-Enhanced Generation**: Integrated vector database ensures knowledge explanation is based on authoritative textbooks
-- **Personalized Learning**: Student profiles, error books, and knowledge mastery tracking
-- **Quality Assurance Mechanism**: Critic Agent reviews content to ensure output quality
-- **Dual-Layer Memory System**:
-  - Short-term Memory: PostgreSQL Checkpointer automatically saves conversation history
-  - Long-term Memory: DashVector vector database stores user profiles and learning records
-- **Asynchronous Persistence**: Uses FastAPI BackgroundTasks for async data writing, improving response speed
-- **General Chitchat Mode**: Support natural conversation for non-learning scenarios, direct output without review
-- **Web Search**: Integrated Alibaba Cloud Bailian MCP WebSearch for real-time information queries
+This project is a **Multi-Agent intelligent tutoring system** designed for education scenarios, built on **LangGraph** to orchestrate multi-agent collaborative workflows. Through 8 specialized AI Agents working together, it provides personalized intelligent tutoring services for students.
+
+The system adopts a **FastAPI** microservice backend + **Streamlit** interactive frontend, integrates **DashVector** for RAG-enhanced vector retrieval, uses **PostgreSQL** to persist conversation history and user profiles, **Redis** for session caching and rate limiting, and achieves cloud-native delivery through **Docker + Kubernetes + GitHub Actions + ArgoCD GitOps**.
+
+> Core Positioning: Delegate knowledge explanation, quiz generation, grading, and error analysis to multiple specialized AI Agents working collaboratively, achieving truly personalized intelligent teaching.
+
+---
 
 ## System Architecture
 
-```
-User Input
-    ↓
-┌─────────────┐
-│  Planner    │ → Teaching Director: Analyze intent, determine routing
-└─────────────┘
-    ↓ (Intent Routing)
-┌─────────────────────────────────────────────────────────────────┐
-│                                                             │
-↓        ↓        ↓        ↓        ↓                     │
-┌──────┐┌──────┐┌──────┐┌──────┐┌──────────────┐             │
-│Learner││Quiz- ││Score ││Explain││  Chitchat    │             │
-│(Tutor)││ler   ││r     ││er    ││ (Chat)       │             │
-│     ││(Exam  ││(Judge)││(Tutor)││ +WebSearch   │             │
-│     ││Maker) ││     ││     ││              │             │
-└──────┘└──────┘└──────┘└──────┘└──────────────┘             │
-│   ↓ (Teaching nodes go through review)   ↓ (Direct output)   │
-└─────────────────────────────────────────────────────────────────┘
-    ↓
-┌─────────────┐
-│  Critic     │ → Teaching Director: Quality review (can reject and redo)
-└─────────────┘
-    ↓
-┌─────────────┐
-│Summarizer   │ → Summarizer: Generate final response
-└─────────────┘
-    ↓ (Sync response return)
-    ↓ (Async background persistence)
-┌─────────────────────────────────────────────────────────────────┐
-│ BackgroundTasks → PostgreSQL + DashVector (Async persistence)│
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    User["User Input"]
+    Planner["Planner Agent<br/>Teaching Director: Intent & Routing"]
+    Learner["Learner Agent<br/>Private Tutor: Knowledge"]
+    Quizzler["Quizzler Agent<br/>Exam Maker: Quiz Generation"]
+    Scorer["Scorer Agent<br/>Judge: Auto Grading"]
+    Explainer["Explainer Agent<br/>Tutor: Error Analysis"]
+    Chitchat["Chitchat Agent<br/>Chat + Web Search"]
+    Critic["Critic Agent<br/>Director: Quality Review"]
+    Summarizer["Summarizer Agent<br/>Final Response"]
+    Response["Return to User"]
+    Persist["Async Persistence"]
+    DB["PostgreSQL + DashVector"]
+
+    User --> Planner
+    Planner -->|"Learn/Quiz/Score/Explain"| Learner
+    Planner -->|"Quiz"| Quizzler
+    Planner -->|"Grade"| Scorer
+    Planner -->|"Error Analysis"| Explainer
+    Planner -->|"Chitchat"| Chitchat
+    Learner --> Critic
+    Quizzler --> Critic
+    Scorer --> Critic
+    Explainer --> Critic
+    Critic -->|"Approved"| Summarizer
+    Critic -->|"Reject & Redo"| Learner
+    Chitchat -->|"Direct Output"| Response
+    Summarizer --> Response
+    Summarizer -.->|"BackgroundTasks"| Persist
+    Persist -.-> DB
 ```
 
-## Agent Roles
+### Core Data Flow
 
-| Agent | Role | Responsibilities | Tools Used |
-|-------|------|------------------|------------|
-| Planner | Teaching Director | Intent recognition, task routing | None |
-| Learner | Private Tutor | Knowledge explanation, concept teaching | RAG search, database |
-| Quizzler | Exam Maker | Intelligent question generation | RAG search, database |
-| Scorer | Judge | Automatic grading, score feedback | Database |
-| Explainer | Tutor | Error analysis, knowledge consolidation | RAG search, database |
-| Critic | Teaching Director | Content quality review | None |
-| Summarizer | Assistant | Generate final teaching response | None |
-| Chitchat | Chat Assistant | General conversation, web search | Web search (MCP) |
+1. User enters a question in the Streamlit frontend
+2. FastAPI backend receives the request, **Planner Agent** analyzes intent and routes to the corresponding Agent
+3. Teaching requests (learn/quiz/score/explain) are processed by specialized Agents, then reviewed by **Critic Agent**
+4. After approval, **Summarizer Agent** generates the final response, returned via **SSE streaming output**
+5. Chitchat requests are output directly, supporting **Alibaba Cloud Bailian MCP Web Search**
+6. After response is returned, **BackgroundTasks** asynchronously writes learning data to PostgreSQL and DashVector
+
+### RESTful API Architecture
+
+The system uses RESTful API design with modular routing:
+- `app/api/chat.py` — Chat endpoint (SSE streaming)
+- `app/services/nodes/` — Agent node implementations
+- `app/services/graph.py` — LangGraph workflow definition
+- `app/models/` — Pydantic request/response models
+
+---
+
+## Key Features
+
+### Multi-Agent Collaborative Architecture
+- **LangGraph** orchestration framework: Planner → Specialized Agents → Critic → Summarizer complete workflow
+- **8 Specialized Agents**: Planner, Learner, Quizzler, Scorer, Explainer, Critic, Summarizer, Chitchat
+- **Intelligent Intent Recognition**: Automatically analyze student needs and route to the most suitable teaching node
+- **Quality Assurance**: Critic Agent reviews teaching content, can reject and redo (up to 2 times)
+
+### RAG-Enhanced Retrieval
+- **DashVector** vector database: Semantic retrieval based on Alibaba Cloud DashVector
+- **DashScope Embedding** (text-embedding-v3): Converts knowledge snippets into vectors
+- Ensures knowledge explanation is based on authoritative textbooks, not model hallucinations
+
+### Dual-Layer Memory System
+- **Short-term Memory**: PostgreSQL Checkpointer automatically saves conversation history
+- **Long-term Memory**: DashVector vector database stores user profiles and learning records
+- **Asynchronous Persistence**: FastAPI BackgroundTasks for async data writing without blocking responses
+
+### SSE Streaming Output
+- Character-by-character typewriter effect via `astream_events`
+- Frontend renders in real-time via SSE for smooth experience
+
+### General Chitchat + Web Search
+- Natural conversation for non-learning scenarios, direct output without Critic review
+- Integrated **Alibaba Cloud Bailian MCP WebSearch** for real-time information queries
+
+---
 
 ## Project Structure
 
@@ -70,7 +110,7 @@ User Input
 edu-agent-service/
 ├── app/
 │   ├── api/
-│   │   └── chat.py                  # Chat API
+│   │   └── chat.py                  # Chat API (SSE streaming)
 │   ├── core/
 │   │   ├── config.py                # Configuration management
 │   │   ├── database.py              # Database connection
@@ -99,49 +139,32 @@ edu-agent-service/
 │   │   └── web_search.py            # Web search tool (MCP)
 │   └── main.py                      # Application entry point
 ├── frontend/
+│   ├── components/                  # Page components
 │   ├── pages/                       # Streamlit pages
-│   ├── utils/                       # Utility functions
+│   ├── utils/
+│   │   ├── auth.py                  # Authentication utilities
+│   │   └── api.py                   # API call utilities
 │   └── app.py                       # Frontend entry point
 ├── .github/workflows/
 │   └── main.yml                     # CI/CD pipeline
-├── .env.example                     # Environment variables example
 ├── Dockerfile                       # Docker image build
-├── requirements.txt                 # Dependencies list
-└── README_EN.md                     # Project documentation (English)
+├── docker-compose.yml               # Local container orchestration
+├── requirements.txt                 # Python dependency manifest
+├── .env.example                     # Environment variable template
+└── .env                             # Actual environment variables (not committed to Git)
 ```
 
----
-
-## Prerequisites
-
-### Local Development
-
-| Dependency | Version | Description |
-|------------|---------|-------------|
-| Python | 3.9+ | Runtime environment |
-| PostgreSQL | 12+ | Conversation history, user data storage |
-| DashVector | - | Alibaba Cloud vector database (RAG retrieval) |
-| OpenAI-compatible LLM | - | GPT-4 or other compatible API |
-| Alibaba Cloud Bailian API | - | Web search capability (optional) |
-
-### CI/CD and Deployment
-
-| Dependency | Description |
-|------------|-------------|
-| GitHub Repository | Code hosting and CI/CD trigger |
-| Alibaba Cloud ACR | Image storage |
-| Kubernetes Cluster | Application runtime (Docker Desktop / minikube / cloud managed) |
-| ArgoCD | GitOps continuous deployment |
-| GitOps Config Repo | [edu-agent-service-gitops](https://github.com/AmazingYe-oss/edu-agent-service-gitops) |
+> Kubernetes GitOps configurations (Deployment, Ingress, Service, etc.) are maintained in the separate repository [edu-agent-service-gitops](https://github.com/AmazingYe-oss/edu-agent-service-gitops).
 
 ---
 
-## Quick Start (Local Development)
+## Quick Start
 
-### 1. Install Dependencies
+### 1. Clone the Project
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/AmazingYe-oss/edu-agent-service.git
+cd edu-agent-service
 ```
 
 ### 2. Configure Environment Variables
@@ -150,127 +173,150 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit the `.env` file:
+Edit the `.env` file with actual configurations:
 
 ```env
 # LLM Configuration
-OPENAI_API_KEY=your-llm-api-key
-OPENAI_API_BASE=https://api.openai.com/v1
-LLM_MODEL_NAME=gpt-4-turbo
+XIAOMI_API_KEY=your-llm-api-key
+XIAOMI_BASE_URL=https://api.openai.com/v1
+XIAOMI_MODEL=mimo-v2.5-pro
 
 # RAG API Configuration
 RAG_API_BASE_URL=http://localhost:8000
 
-# Database Configuration
+# PostgreSQL Configuration
 POSTGRES_URL=postgresql://user:password@host:port/database
 
 # Redis Configuration
 REDIS_URL=redis://:password@host:port/0
 
-# Vector Database Configuration
+# DashVector Configuration
 DASHVECTOR_API_KEY=your-api-key
 DASHVECTOR_ENDPOINT=your-endpoint
 
-# Alibaba Cloud Bailian MCP WebSearch
-DASHSCOPE_API_KEY=your-dashscope-api-key
+# Embedding Configuration
+EMBEDDING_API_KEY=your-embedding-key
+EMBEDDING_API_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+
+# Alibaba Cloud Bailian MCP Web Search
+DASHSCOPE_API_KEY=your-dashscope-key
 ```
 
-### 3. Initialize Database
+### 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Initialize Database
 
 ```bash
 python create_tables.py
 ```
 
-### 4. Start the Service
+### 5. Start the Service
 
 ```bash
-# Start backend
+# Start backend (Terminal 1)
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
 
-# Start frontend (new terminal)
+# Start frontend (Terminal 2)
 cd frontend
 streamlit run app.py
 ```
 
-### 5. Access the Service
+### 6. Access the Service
 
-- Backend API Documentation: http://localhost:8080/docs
 - Frontend Interface: http://localhost:8501
+- Backend API Documentation: http://localhost:8080/docs
 
 ---
 
-## Deployment
+## Docker Compose Local Deployment
 
-This project uses **GitHub Actions + Alibaba Cloud ACR + ArgoCD GitOps** automated deployment pipeline.
+```bash
+# One-click start backend + frontend
+docker compose up --build -d
 
-### Overall Flow
-
+# View logs
+docker logs edu_backend
+docker logs edu_frontend
 ```
-Code Push (main)
-    ↓
-GitHub Actions Triggered
-    ↓
-Build Docker Image
-    ↓
-Push to Alibaba Cloud ACR
-    ↓
-Update GitOps Repo Image Tag
-    ↓
-ArgoCD Detects Changes
-    ↓
-Auto-sync to Kubernetes Cluster
+
+Service URLs:
+- Frontend: http://localhost:8501
+- Backend: http://localhost:8080/docs
+
+---
+
+## Cloud Native Delivery Workflow
+
+The project adopts a Dual-Repository GitOps architecture, completely decoupling the business source code from the Kubernetes configuration repository.
+
+```mermaid
+flowchart LR
+    Dev["Developer Push Code"]
+    CI["GitHub Actions"]
+    Build["Docker Build"]
+    ACR["Aliyun ACR"]
+    GitOps["GitOps Config Repo"]
+    ArgoCD["ArgoCD"]
+    K8s["Kubernetes Cluster"]
+    Pod["Agent Service Pods"]
+
+    Dev --> CI
+    CI --> Build
+    Build --> ACR
+    CI --> GitOps
+    GitOps --> ArgoCD
+    ArgoCD --> K8s
+    K8s --> Pod
 ```
+
+The delivery pipeline workflow:
+
+1. Developers push code to the business repository (main branch).
+2. GitHub Actions automatically triggers the CI pipeline.
+3. CI executes Docker image build.
+4. Image is pushed to Alibaba Cloud ACR (tagged with both latest and commit SHA).
+5. CI automatically updates the Image Tag in the GitOps configuration repository.
+6. ArgoCD continuously monitors the GitOps repository for changes.
+7. ArgoCD synchronizes the desired state to the Kubernetes cluster.
+8. Kubernetes performs a rolling update to complete the deployment.
 
 ### Detailed Deployment Steps
 
 #### Step 0: Create a Kubernetes Cluster
 
-If you don't have a K8s cluster yet, you need to create one first.
-
 **Option 1: Docker Desktop (Recommended for local development)**
 
 1. Open Docker Desktop → **Settings** → **Kubernetes**
-2. Check **Enable Kubernetes**
-3. Click **Apply & Restart**, wait for the bottom status bar to show green **Kubernetes running**
-4. Verify cluster status:
+2. Check **Enable Kubernetes** → **Apply & Restart**
+3. Verify:
 
 ```bash
 kubectl cluster-info
 kubectl get nodes
-# Should see node status as Ready
 ```
 
-**Option 2: minikube (Lightweight local cluster)**
+**Option 2: minikube**
 
 ```bash
-# After installing minikube
 minikube start
 kubectl cluster-info
 ```
 
-**Option 3: Cloud-managed cluster (Recommended for production)**
+**Option 3: Cloud-managed cluster (Production)**
 
 - Alibaba Cloud ACK: https://www.aliyun.com/product/kubernetes
 - Tencent Cloud TKE: https://cloud.tencent.com/product/tke
 - Huawei Cloud CCE: https://www.huaweicloud.com/product/cce.html
-
-After creation, download the kubeconfig file and configure it locally:
-
-```bash
-export KUBECONFIG=/path/to/your/kubeconfig
-kubectl cluster-info
-```
 
 #### Step 1: Install ArgoCD
 
 ```bash
 kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-```
-
-Wait for ArgoCD to be ready:
-
-```bash
 kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s
 ```
 
@@ -284,8 +330,6 @@ In the repository's **Settings → Secrets and variables → Actions → Reposit
 | `ACR_PASSWORD` | Alibaba Cloud ACR login password |
 | `GITOPS_TOKEN` | GitHub PAT (requires `repo` permission for cross-repo push) |
 
-> ACR_REGISTRY, ACR_NAMESPACE, ACR_REPO are hardcoded in the workflow file, no additional configuration needed.
-
 #### Step 3: Push Code to Trigger CI
 
 ```bash
@@ -294,156 +338,97 @@ git commit -m "your commit message"
 git push origin main
 ```
 
-GitHub Actions will automatically:
-1. Checkout code
-2. Build Docker image
-3. Login to Alibaba Cloud ACR
-4. Push image (Tag: 8-char commit SHA + branch name)
-5. Update GitOps repo `kustomization.yaml` image tag
+#### Step 4: Create K8s Secret and ConfigMap
 
-#### Step 4: Deploy ArgoCD Application
+```bash
+# Create Secret from .env file
+kubectl create secret generic edu-agent-service-secret \
+  --from-env-file=.env \
+  -n edu-agent-service-dev
 
-Apply ArgoCD configuration in Kubernetes cluster:
+# Create ACR image pull credentials
+kubectl create secret docker-registry acr-credentials \
+  --docker-server=crpi-he7mqvhihpnvi08o.cn-shanghai.personal.cr.aliyuncs.com \
+  --docker-username=YOUR_ACR_USERNAME \
+  --docker-password=YOUR_ACR_PASSWORD \
+  -n edu-agent-service-dev
+```
+
+#### Step 5: Deploy ArgoCD Application
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/AmazingYe-oss/edu-agent-service-gitops/main/argocd/application.yaml
 ```
 
-Or via ArgoCD CLI:
+#### Step 6: Verify Deployment
 
 ```bash
-argocd app create edu-agent-service \
-  --repo https://github.com/AmazingYe-oss/edu-agent-service-gitops.git \
-  --path base \
-  --dest-server https://kubernetes.default.svc \
-  --dest-namespace edu-agent-service-dev \
-  --sync-policy automated \
-  --auto-prune \
-  --self-heal
-```
-
-ArgoCD will automatically:
-- Monitor the GitOps repo's `base/` directory
-- Auto-sync when image tag changes
-- Create namespace `edu-agent-service-dev`
-- Deploy Deployment, Service, Ingress and other resources
-
-#### Step 5: Verify Deployment
-
-```bash
-# Check Pod status
 kubectl get pods -n edu-agent-service-dev
-
-# Check Service
 kubectl get svc -n edu-agent-service-dev
-
-# Check Ingress
 kubectl get ingress -n edu-agent-service-dev
-
-# Check ArgoCD sync status
-argocd app get edu-agent-service
 ```
 
-#### Step 6: Access the Service
-
-After deployment, access the service via port forwarding:
+#### Step 7: Access the Service
 
 ```bash
-# Port forward (for development/debugging)
 kubectl port-forward svc/edu-agent-service 8080:80 -n edu-agent-service-dev
-
-# Then access http://localhost:8080/docs
-```
-
-Check Ingress address (if domain is configured):
-
-```bash
-kubectl get ingress -n edu-agent-service-dev
+# Access http://localhost:8080/docs
 ```
 
 ---
 
-## CI/CD Configuration
+## Agent Roles
 
-### GitHub Actions Workflow
-
-File location: `.github/workflows/main.yml`
-
-**Triggers:**
-- Push to `main`, `master`, `release/*` branches
-- Manual trigger (workflow_dispatch)
-
-**Image Tag Strategy:**
-- `<8-char commit SHA>`: Unique identifier per build
-- `<branch name>`: Branch-level identifier
-- `latest`: Only for main/master branches
-
-**Image Address Format:**
-```
-crpi-he7mqvhihpnvi08o.cn-shanghai.personal.cr.aliyuncs.com/edu-agent-project/edu-agent-service:<tag>
-```
-
-### GitOps Configuration Repo
-
-Config repo: [edu-agent-service-gitops](https://github.com/AmazingYe-oss/edu-agent-service-gitops)
-
-CI pipeline automatically updates the image tag in `base/kustomization.yaml`. ArgoCD detects changes and auto-syncs to the cluster.
-
-### GitOps Config Repo Structure
-
-```
-edu-agent-service-gitops/
-├── argocd/
-│   └── application.yaml        # ArgoCD Application manifest
-└── base/
-    ├── development.yaml        # Deployment + Service
-    ├── ingress.yaml            # Ingress configuration
-    └── kustomization.yaml      # Kustomize main config (image tag auto-updated by CI)
-```
-
-For more details, see: [edu-agent-service-gitops README](https://github.com/AmazingYe-oss/edu-agent-service-gitops)
+| Agent | Role | Responsibilities | Tools Used |
+|-------|------|------------------|------------|
+| Planner | Teaching Director | Intent recognition, task routing | None |
+| Learner | Private Tutor | Knowledge explanation, concept teaching | RAG search, database |
+| Quizzler | Exam Maker | Intelligent question generation | RAG search, database |
+| Scorer | Judge | Automatic grading, score feedback | Database |
+| Explainer | Tutor | Error analysis, knowledge consolidation | RAG search, database |
+| Critic | Teaching Director | Content quality review | None |
+| Summarizer | Assistant | Generate final teaching response | None |
+| Chitchat | Chat Assistant | General conversation, web search | Web search (MCP) |
 
 ---
 
-## API Endpoints
+## FAQ
 
-### Chat Endpoint
+**Q: Backend startup reports `DASHVECTOR_API_KEY` not configured?**
+A: Ensure `.env` file or K8s Secret correctly configures `DASHVECTOR_API_KEY` and `DASHVECTOR_ENDPOINT`.
 
-**POST** `/api/v1/chat`
+**Q: PostgreSQL connection fails?**
+A: Check `POSTGRES_URL` format: `postgresql://username:password@host:port/database`.
 
-Request Body:
-```json
-{
-  "message": "Please explain Newton's second law to me",
-  "user_id": "user_123",
-  "session_id": "sess_456"
-}
-```
+**Q: Redis connection fails?**
+A: Check `REDIS_URL` format. For local development, start a Redis container: `docker run -d -p 6379:6379 redis`.
 
-Response: SSE streaming output
+**Q: Backend Pod status is `ErrImagePull`?**
+A: You need to create ACR image pull credentials. See Step 4 in deployment.
 
-### Session Management
+**Q: Backend Pod status is `CreateContainerConfigError`?**
+A: Usually the Secret name is not `edu-agent-service-secret` or required environment variables are missing. Use `kubectl describe pod` to view Events.
 
-**GET** `/api/v1/sessions?user_id=user_123`
-
-Get user's session list
-
-## Workflow
-
-1. **Intent Recognition**: Planner Agent analyzes user input, identifies intent (learn/quiz/score/explain/chitchat)
-2. **Route Distribution**: Routes the request to the corresponding Agent based on intent
-3. **Task Execution**:
-   - Teaching intents (learn/quiz/score/explain) → Go through Critic review → Summarizer generates final response
-   - Chitchat intent → Direct output without review, supports web search
-4. **Quality Review**: Critic Agent reviews teaching content quality, can reject and redo (up to 2 times)
-5. **Async Persistence**: After response is returned, BackgroundTasks asynchronously saves learning data to PostgreSQL and DashVector
+**Q: Critic Agent reports JSON parsing error?**
+A: LLM returned JSON with invalid escape characters. The system has built-in fault tolerance and will automatically degrade to pass.
 
 ---
 
-## Contributing
+## Use Cases
 
-Issues and Pull Requests are welcome!
+- **Personalized intelligent tutoring** (Multi-agent collaboration covering learn, practice, test, and evaluate)
+- **Intelligent quiz generation & auto-grading** (RAG-based precise question generation)
+- **Error analysis & knowledge consolidation** (Targeted analysis of weak areas)
+- **Web search-enhanced general Q&A** (Real-time information queries)
+- **Cloud-native AI application engineering practice**
+- **AI application CI/CD & GitOps delivery demonstration**
 
-## License
+---
 
-This project is licensed under the MIT License.
+## Author
+
+**Weiye Zhu (AmazingYe)**
+- Class of 2027, Data Science and Big Data Technology
+- AWS Certified Solutions Architect - Professional
+- Alibaba Cloud Large Model ACP Certified
+- Looking for internship opportunities in **Cloud Computing / Cloud Native / DevOps / SRE / AI Engineering**. Feel free to connect!

@@ -1,67 +1,108 @@
-﻿# Edu Multi-Agent Service
+﻿# Edu Multi-Agent Service — 多智能体教育辅导系统
 
-基于 **LangGraph** 的多智能体教育系统，通过多个专业 AI Agent 协作，为学生提供个性化的智能辅导服务。
+![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi)
+![Streamlit](https://img.shields.io/badge/Streamlit-UI-FF4B4B?logo=streamlit)
+![LangGraph](https://img.shields.io/badge/LangGraph-Multi_Agent-000000?logo=langchain)
+![Docker](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-Ready-blue?logo=kubernetes)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-对话历史-336791?logo=postgresql)
+![Redis](https://img.shields.io/badge/Redis-会话缓存-dc382d?logo=redis)
+![DashVector](https://img.shields.io/badge/DashVector-向量检索-00c4b4)
+![CI/CD](https://img.shields.io/badge/CI-GitHub_Actions-green?logo=github-actions)
+![GitOps](https://img.shields.io/badge/GitOps-ArgoCD-orange?logo=argo)
 
-## 核心特性
+## 项目简介
 
-- **多智能体协作架构**：8 个专业 Agent 各司其职，协同完成教学任务
-- **智能意图识别**：自动分析学生需求，路由到最合适的教学节点
-- **RAG 检索增强**：集成向量数据库，确保知识讲解基于权威教材
-- **个性化学习**：学生画像、错题本、知识掌握度追踪
-- **质量保证机制**：教导主任 Agent 审查内容，确保输出质量
-- **双层记忆系统**：
-  - 短时记忆：PostgreSQL Checkpointer 自动保存对话历史
-  - 长时记忆：DashVector 向量库存储用户画像和学习记录
-- **异步持久化**：使用 FastAPI BackgroundTasks 实现数据异步写入，提升响应速度
-- **通用闲聊模式**：支持非学习场景的自然对话，直接输出不经过审查
-- **联网搜索**：集成阿里云百炼 MCP 联网搜索，支持实时信息查询
+本项目是一个面向教育场景的 **多智能体（Multi-Agent）智能辅导系统**，基于 **LangGraph** 构建多 Agent 协作工作流，通过 8 个专业 AI Agent 协同工作，为学生提供个性化的智能辅导服务。
+
+系统采用 **FastAPI** 微服务后端 + **Streamlit** 交互式前端，集成 **DashVector** 向量检索实现 RAG 增强，使用 **PostgreSQL** 持久化对话历史与用户画像，**Redis** 提供会话缓存与限流，通过 **Docker + Kubernetes + GitHub Actions + ArgoCD GitOps** 实现云原生交付。
+
+> 核心定位：将传统教育中的知识讲解、出题测试、批改评分、错题解析等环节，交由多个专业 AI Agent 协作完成，实现真正意义上的个性化智能教学。
+
+---
 
 ## 系统架构
 
-```
-用户输入
-    ↓
-┌─────────────┐
-│  Planner    │ → 教学总监：分析意图，决定路由
-└─────────────┘
-    ↓ (意图路由)
-┌─────────────────────────────────────────────────────────────────┐
-│                                                             │
-↓        ↓        ↓        ↓        ↓                     │
-┌──────┐┌──────┐┌──────┐┌──────┐┌──────────────┐             │
-│Learner││Quiz- ││Score ││Explain││  Chitchat    │             │
-│(私教) ││ler   ││r     ││er    ││ (闲聊)       │             │
-│     ││(考官) ││(裁判) ││(辅导) ││ +联网搜索     │             │
-└──────┘└──────┘└──────┘└──────┘└──────────────┘             │
-│   ↓ (教学节点经过审查)                  ↓ (直接输出)           │
-└─────────────────────────────────────────────────────────────────┘
-    ↓
-┌─────────────┐
-│  Critic     │ → 教导主任：质量检查（可打回重做）
-└─────────────┘
-    ↓
-┌─────────────┐
-│Summarizer   │ → 总结节点：生成最终回复
-└─────────────┘
-    ↓ (同步返回响应)
-    ↓ (异步后台持久化)
-┌─────────────────────────────────────────────────────────────────┐
-│ BackgroundTasks → PostgreSQL + DashVector (异步数据沉淀)    │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    User["用户输入"]
+    Planner["Planner Agent<br/>教学总监：意图识别 & 路由"]
+    Learner["Learner Agent<br/>私人教师：知识讲解"]
+    Quizzler["Quizzler Agent<br/>出题考官：智能出题"]
+    Scorer["Scorer Agent<br/>批改裁判：自动评分"]
+    Explainer["Explainer Agent<br/>辅导教师：错题解析"]
+    Chitchat["Chitchat Agent<br/>闲聊助手 + 联网搜索"]
+    Critic["Critic Agent<br/>教导主任：质量审查"]
+    Summarizer["Summarizer Agent<br/>总结节点：生成最终回复"]
+    Response["返回用户"]
+    Persist["异步持久化"]
+    DB["PostgreSQL + DashVector"]
+
+    User --> Planner
+    Planner -->|"学习/出题/批改/解析"| Learner
+    Planner -->|"出题"| Quizzler
+    Planner -->|"批改"| Scorer
+    Planner -->|"错题解析"| Explainer
+    Planner -->|"闲聊"| Chitchat
+    Learner --> Critic
+    Quizzler --> Critic
+    Scorer --> Critic
+    Explainer --> Critic
+    Critic -->|"通过"| Summarizer
+    Critic -->|"打回重做"| Learner
+    Chitchat -->|"直接输出"| Response
+    Summarizer --> Response
+    Summarizer -.->|"BackgroundTasks"| Persist
+    Persist -.-> DB
 ```
 
-## Agent 角色
+### 核心数据流
 
-| Agent | 角色 | 职责 | 使用工具 |
-|-------|------|------|----------|
-| Planner | 教学总监 | 意图识别、任务路由 | 无 |
-| Learner | 私人教师 | 知识讲解、概念解释 | RAG 检索、数据库 |
-| Quizzler | 出题考官 | 智能出题、题目生成 | RAG 检索、数据库 |
-| Scorer | 批改裁判 | 自动批改、评分反馈 | 数据库 |
-| Explainer | 辅导教师 | 错题解析、知识点巩固 | RAG 检索、数据库 |
-| Critic | 教导主任 | 内容质量审查 | 无 |
-| Summarizer | 总结助手 | 生成最终教学回复 | 无 |
-| Chitchat | 闲聊助手 | 通用对话、联网搜索 | 联网搜索（MCP） |
+1. 用户在 Streamlit 前端输入问题
+2. FastAPI 后端接收请求，**Planner Agent** 分析意图并路由到对应 Agent
+3. 教学类请求（学习/出题/批改/解析）经过专业 Agent 处理后，由 **Critic Agent** 审查质量
+4. 审查通过后 **Summarizer Agent** 生成最终回复，通过 **SSE 流式输出** 返回用户
+5. 闲聊类请求直接输出，支持 **阿里云百炼 MCP 联网搜索**
+6. 响应返回后，**BackgroundTasks** 异步将学习数据写入 PostgreSQL 和 DashVector
+
+### RESTful API 架构
+
+系统采用 RESTful API 设计，路由模块化：
+- `app/api/chat.py` — 聊天接口（SSE 流式输出）
+- `app/services/nodes/` — 各 Agent 节点实现
+- `app/services/graph.py` — LangGraph 工作流定义
+- `app/models/` — Pydantic 请求/响应模型
+
+---
+
+## 核心特性
+
+### 多智能体协作架构
+- **LangGraph** 编排框架：Planner → 专业 Agent → Critic → Summarizer 的完整工作流
+- **8 个专业 Agent**：Planner、Learner、Quizzler、Scorer、Explainer、Critic、Summarizer、Chitchat
+- **智能意图识别**：自动分析学生需求，路由到最合适的教学节点
+- **质量保证机制**：Critic Agent 审查教学内容，不合格可打回重做（最多 2 次）
+
+### RAG 检索增强
+- **DashVector** 向量数据库：基于阿里云 DashVector 实现语义检索
+- **DashScope Embedding**（text-embedding-v3）：将知识片段转化为向量
+- 确保知识讲解基于权威教材，而非模型幻觉
+
+### 双层记忆系统
+- **短时记忆**：PostgreSQL Checkpointer 自动保存对话历史
+- **长时记忆**：DashVector 向量库存储用户画像和学习记录
+- **异步持久化**：FastAPI BackgroundTasks 实现数据异步写入，不阻塞响应
+
+### SSE 流式输出
+- 基于 `astream_events` 实现逐字打字机效果
+- 前端通过 SSE 实时渲染，体验流畅
+
+### 通用闲聊 + 联网搜索
+- 非学习场景的自然对话，直接输出不经过 Critic 审查
+- 集成 **阿里云百炼 MCP WebSearch**，支持实时信息查询
+
+---
 
 ## 项目结构
 
@@ -69,7 +110,7 @@
 edu-agent-service/
 ├── app/
 │   ├── api/
-│   │   └── chat.py                  # Chat API
+│   │   └── chat.py                  # Chat API (SSE 流式)
 │   ├── core/
 │   │   ├── config.py                # 配置管理
 │   │   ├── database.py              # 数据库连接
@@ -87,7 +128,7 @@ edu-agent-service/
 │   │   │   ├── explainer.py         # 错题解析
 │   │   │   ├── critic.py            # 质量审查
 │   │   │   ├── summarizer.py        # 总结回复
-│   │   │   └── chitchat.py          # 闲聊对话 + 联网搜索
+│   │   │   └── chitchat.py          # 闲聊 + 联网搜索
 │   │   ├── async_persistence.py     # 异步持久化服务
 │   │   ├── graph.py                 # LangGraph 工作流定义
 │   │   └── state.py                 # 状态定义
@@ -98,49 +139,32 @@ edu-agent-service/
 │   │   └── web_search.py            # 联网搜索工具 (MCP)
 │   └── main.py                      # 应用入口
 ├── frontend/
+│   ├── components/                  # 页面组件
 │   ├── pages/                       # Streamlit 页面
-│   ├── utils/                       # 工具函数
+│   ├── utils/
+│   │   ├── auth.py                  # 认证工具
+│   │   └── api.py                   # API 调用工具
 │   └── app.py                       # 前端入口
 ├── .github/workflows/
 │   └── main.yml                     # CI/CD 流水线
-├── .env.example                     # 环境变量示例
 ├── Dockerfile                       # Docker 镜像构建
-├── requirements.txt                 # 依赖列表
-└── README.md                        # 项目文档
+├── docker-compose.yml               # 本地容器编排
+├── requirements.txt                 # Python 依赖清单
+├── .env.example                     # 环境变量模板
+└── .env                             # 实际环境变量（不入 Git）
 ```
 
----
-
-## 前置条件
-
-### 本地开发
-
-| 依赖 | 版本要求 | 说明 |
-|------|----------|------|
-| Python | 3.9+ | 运行环境 |
-| PostgreSQL | 12+ | 对话历史、用户数据存储 |
-| DashVector | - | 阿里云向量数据库（RAG 检索） |
-| OpenAI 兼容 LLM | - | GPT-4 或其他兼容 API |
-| 阿里云百炼 API | - | 联网搜索能力（可选） |
-
-### CI/CD 与部署
-
-| 依赖 | 说明 |
-|------|------|
-| GitHub 仓库 | 代码托管与 CI/CD 触发 |
-| 阿里云容器镜像服务 (ACR) | 镜像存储 |
-| Kubernetes 集群 | 应用运行环境（Docker Desktop / minikube / 云厂商托管） |
-| ArgoCD | GitOps 持续部署 |
-| GitOps 配置仓 | [edu-agent-service-gitops](https://github.com/AmazingYe-oss/edu-agent-service-gitops) |
+> Kubernetes GitOps 配置（Deployment、Ingress、Service 等）维护在独立仓库 [edu-agent-service-gitops](https://github.com/AmazingYe-oss/edu-agent-service-gitops)。
 
 ---
 
-## 快速开始（本地开发）
+## 快速开始
 
-### 1. 安装依赖
+### 1. 克隆项目
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/AmazingYe-oss/edu-agent-service.git
+cd edu-agent-service
 ```
 
 ### 2. 配置环境变量
@@ -149,127 +173,150 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-编辑 `.env` 文件：
+编辑 `.env` 文件，填入实际配置：
 
 ```env
 # LLM 配置
-OPENAI_API_KEY=your-llm-api-key
-OPENAI_API_BASE=https://api.openai.com/v1
-LLM_MODEL_NAME=gpt-4-turbo
+XIAOMI_API_KEY=your-llm-api-key
+XIAOMI_BASE_URL=https://api.openai.com/v1
+XIAOMI_MODEL=mimo-v2.5-pro
 
 # RAG API 配置
 RAG_API_BASE_URL=http://localhost:8000
 
-# 数据库配置
+# PostgreSQL 配置
 POSTGRES_URL=postgresql://user:password@host:port/database
 
 # Redis 配置
 REDIS_URL=redis://:password@host:port/0
 
-# 向量数据库配置
+# DashVector 向量库配置
 DASHVECTOR_API_KEY=your-api-key
 DASHVECTOR_ENDPOINT=your-endpoint
 
+# Embedding 配置
+EMBEDDING_API_KEY=your-embedding-key
+EMBEDDING_API_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+
 # 阿里云百炼 MCP 联网搜索
-DASHSCOPE_API_KEY=your-dashscope-api-key
+DASHSCOPE_API_KEY=your-dashscope-key
 ```
 
-### 3. 初始化数据库
+### 3. 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. 初始化数据库
 
 ```bash
 python create_tables.py
 ```
 
-### 4. 启动服务
+### 5. 启动服务
 
 ```bash
-# 启动后端
+# 启动后端（终端 1）
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
 
-# 启动前端（新终端）
+# 启动前端（终端 2）
 cd frontend
 streamlit run app.py
 ```
 
-### 5. 访问服务
+### 6. 访问服务
 
-- 后端 API 文档：http://localhost:8080/docs
 - 前端界面：http://localhost:8501
+- 后端 API 文档：http://localhost:8080/docs
 
 ---
 
-## 部署方式
+## Docker Compose 本地部署
 
-本项目采用 **GitHub Actions + 阿里云 ACR + ArgoCD GitOps** 的自动化部署流水线。
+```bash
+# 一键启动后端 + 前端
+docker compose up --build -d
 
-### 整体流程
-
+# 查看日志
+docker logs edu_backend
+docker logs edu_frontend
 ```
-代码推送 (main)
-    ↓
-GitHub Actions 触发
-    ↓
-构建 Docker 镜像
-    ↓
-推送至阿里云 ACR
-    ↓
-更新 GitOps 仓库镜像 Tag
-    ↓
-ArgoCD 检测到变更
-    ↓
-自动同步至 Kubernetes 集群
+
+服务地址：
+- 前端：http://localhost:8501
+- 后端：http://localhost:8080/docs
+
+---
+
+## 云原生交付链路 (Cloud Native Delivery Workflow)
+
+项目采用双仓 GitOps 架构，将业务代码仓与 Kubernetes 配置仓彻底解耦。
+
+```mermaid
+flowchart LR
+    Dev["Developer Push Code"]
+    CI["GitHub Actions"]
+    Build["Docker Build"]
+    ACR["Aliyun ACR"]
+    GitOps["GitOps Config Repo"]
+    ArgoCD["ArgoCD"]
+    K8s["Kubernetes Cluster"]
+    Pod["Agent Service Pods"]
+
+    Dev --> CI
+    CI --> Build
+    Build --> ACR
+    CI --> GitOps
+    GitOps --> ArgoCD
+    ArgoCD --> K8s
+    K8s --> Pod
 ```
+
+交付流程如下：
+
+1. 开发者向业务代码仓库 Push 代码（main 分支）。
+2. GitHub Actions 自动触发 CI 流水线。
+3. CI 执行 Docker 镜像构建。
+4. 镜像推送至阿里云 ACR（同时打 latest 和 commit SHA 标签）。
+5. CI 自动修改 GitOps 配置仓库中的镜像 Tag。
+6. ArgoCD 监听 GitOps 仓库变更。
+7. ArgoCD 将期望状态同步到 Kubernetes 集群。
+8. Kubernetes 执行滚动更新，完成服务发布。
 
 ### 详细部署步骤
 
 #### 第零步：创建 Kubernetes 集群
 
-如果你还没有 K8s 集群，需要先创建一个。
-
 **方式一：Docker Desktop（推荐本地开发）**
 
 1. 打开 Docker Desktop → **Settings** → **Kubernetes**
-2. 勾选 **Enable Kubernetes**
-3. 点击 **Apply & Restart**，等待底部状态栏显示绿色 **Kubernetes running**
-4. 验证集群状态：
+2. 勾选 **Enable Kubernetes** → **Apply & Restart**
+3. 验证：
 
 ```bash
 kubectl cluster-info
 kubectl get nodes
-# 应看到节点状态为 Ready
 ```
 
-**方式二：minikube（轻量本地集群）**
+**方式二：minikube**
 
 ```bash
-# 安装 minikube 后
 minikube start
 kubectl cluster-info
 ```
 
-**方式三：云厂商托管集群（生产环境推荐）**
+**方式三：云厂商托管集群（生产环境）**
 
 - 阿里云 ACK：https://www.aliyun.com/product/kubernetes
 - 腾讯云 TKE：https://cloud.tencent.com/product/tke
 - 华为云 CCE：https://www.huaweicloud.com/product/cce.html
-
-创建后下载 kubeconfig 文件，配置到本地：
-
-```bash
-export KUBECONFIG=/path/to/your/kubeconfig
-kubectl cluster-info
-```
 
 #### 第一步：安装 ArgoCD
 
 ```bash
 kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-```
-
-等待 ArgoCD 就绪：
-
-```bash
 kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s
 ```
 
@@ -283,8 +330,6 @@ kubectl wait --for=condition=available deployment/argocd-server -n argocd --time
 | `ACR_PASSWORD` | 阿里云 ACR 登录密码 |
 | `GITOPS_TOKEN` | GitHub PAT（需要 `repo` 权限，用于跨仓库推送） |
 
-> ACR_REGISTRY、ACR_NAMESPACE、ACR_REPO 已在工作流文件中硬编码，无需额外配置。
-
 #### 第三步：推送代码触发 CI
 
 ```bash
@@ -293,156 +338,97 @@ git commit -m "your commit message"
 git push origin main
 ```
 
-GitHub Actions 会自动执行：
-1. 拉取代码
-2. 构建 Docker 镜像
-3. 登录阿里云 ACR
-4. 推送镜像（Tag 为 8 位 commit SHA + 分支名）
-5. 更新 GitOps 仓库 `kustomization.yaml` 中的镜像 Tag
+#### 第四步：创建 K8s Secret 和 ConfigMap
 
-#### 第四步：部署 ArgoCD Application
+```bash
+# 从 .env 文件创建 Secret
+kubectl create secret generic edu-agent-service-secret \
+  --from-env-file=.env \
+  -n edu-agent-service-dev
 
-在 Kubernetes 集群中应用 ArgoCD 配置：
+# 创建 ACR 镜像拉取凭证
+kubectl create secret docker-registry acr-credentials \
+  --docker-server=crpi-he7mqvhihpnvi08o.cn-shanghai.personal.cr.aliyuncs.com \
+  --docker-username=你的ACR用户名 \
+  --docker-password=你的ACR密码 \
+  -n edu-agent-service-dev
+```
+
+#### 第五步：部署 ArgoCD Application
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/AmazingYe-oss/edu-agent-service-gitops/main/argocd/application.yaml
 ```
 
-或者通过 ArgoCD CLI：
+#### 第六步：验证部署
 
 ```bash
-argocd app create edu-agent-service \
-  --repo https://github.com/AmazingYe-oss/edu-agent-service-gitops.git \
-  --path base \
-  --dest-server https://kubernetes.default.svc \
-  --dest-namespace edu-agent-service-dev \
-  --sync-policy automated \
-  --auto-prune \
-  --self-heal
-```
-
-ArgoCD 会自动：
-- 监控 GitOps 仓库的 `base/` 目录
-- 检测到镜像 Tag 变更后自动同步
-- 创建命名空间 `edu-agent-service-dev`
-- 部署 Deployment、Service、Ingress 等资源
-
-#### 第五步：验证部署
-
-```bash
-# 查看 Pod 状态
 kubectl get pods -n edu-agent-service-dev
-
-# 查看 Service
 kubectl get svc -n edu-agent-service-dev
-
-# 查看 Ingress
 kubectl get ingress -n edu-agent-service-dev
-
-# 查看 ArgoCD 同步状态
-argocd app get edu-agent-service
 ```
 
-#### 第六步：访问服务
-
-部署完成后，通过端口转发访问服务：
+#### 第七步：访问服务
 
 ```bash
-# 端口转发（开发调试用）
 kubectl port-forward svc/edu-agent-service 8080:80 -n edu-agent-service-dev
-
-# 然后访问 http://localhost:8080/docs
-```
-
-查看 Ingress 地址（如已配置域名解析）：
-
-```bash
-kubectl get ingress -n edu-agent-service-dev
+# 访问 http://localhost:8080/docs
 ```
 
 ---
 
-## CI/CD 配置说明
+## Agent 角色说明
 
-### GitHub Actions 工作流
-
-文件位置：`.github/workflows/main.yml`
-
-**触发条件：**
-- 推送到 `main`、`master`、`release/*` 分支
-- 手动触发（workflow_dispatch）
-
-**镜像标签策略：**
-- `<8位commit SHA>`：每次构建唯一标识
-- `<分支名>`：分支级标识
-- `latest`：仅 main/master 分支
-
-**镜像地址格式：**
-```
-crpi-he7mqvhihpnvi08o.cn-shanghai.personal.cr.aliyuncs.com/edu-agent-project/edu-agent-service:<tag>
-```
-
-### GitOps 配置仓
-
-配置仓地址：[edu-agent-service-gitops](https://github.com/AmazingYe-oss/edu-agent-service-gitops)
-
-CI 流水线会自动更新 `base/kustomization.yaml` 中的镜像 Tag，ArgoCD 检测到变更后自动同步到集群。
-
-### GitOps 配置仓结构
-
-```
-edu-agent-service-gitops/
-├── argocd/
-│   └── application.yaml        # ArgoCD Application 清单
-└── base/
-    ├── development.yaml        # Deployment + Service
-    ├── ingress.yaml            # Ingress 配置
-    └── kustomization.yaml      # Kustomize 主配置（镜像 Tag 由 CI 自动更新）
-```
-
-更多配置仓说明请参阅：[edu-agent-service-gitops README](https://github.com/AmazingYe-oss/edu-agent-service-gitops)
+| Agent | 角色 | 职责 | 使用工具 |
+|-------|------|------|----------|
+| Planner | 教学总监 | 意图识别、任务路由 | 无 |
+| Learner | 私人教师 | 知识讲解、概念解释 | RAG 检索、数据库 |
+| Quizzler | 出题考官 | 智能出题、题目生成 | RAG 检索、数据库 |
+| Scorer | 批改裁判 | 自动批改、评分反馈 | 数据库 |
+| Explainer | 辅导教师 | 错题解析、知识点巩固 | RAG 检索、数据库 |
+| Critic | 教导主任 | 内容质量审查 | 无 |
+| Summarizer | 总结助手 | 生成最终教学回复 | 无 |
+| Chitchat | 闲聊助手 | 通用对话、联网搜索 | 联网搜索（MCP） |
 
 ---
 
-## API 接口
+## 常见问题
 
-### 聊天接口
+**Q: 后端启动报 `DASHVECTOR_API_KEY` 未配置？**
+A: 确保 `.env` 文件或 K8s Secret 中已正确配置 `DASHVECTOR_API_KEY` 和 `DASHVECTOR_ENDPOINT`。
 
-**POST** `/api/v1/chat`
+**Q: PostgreSQL 连接失败？**
+A: 检查 `POSTGRES_URL` 格式是否正确：`postgresql://用户名:密码@地址:端口/数据库名`。
 
-请求体：
-```json
-{
-  "message": "请帮我讲解一下牛顿第二定律",
-  "user_id": "user_123",
-  "session_id": "sess_456"
-}
-```
+**Q: Redis 连接失败？**
+A: 检查 `REDIS_URL` 格式是否正确。本地开发可启动一个 Redis 容器：`docker run -d -p 6379:6379 redis`。
 
-响应：SSE 流式输出
+**Q: 后端 Pod 状态为 `ErrImagePull`？**
+A: 需要创建 ACR 镜像拉取凭证，参考部署步骤第四步。
 
-### 会话管理
+**Q: 后端 Pod 状态为 `CreateContainerConfigError`？**
+A: 通常是 Secret 名称不是 `edu-agent-service-secret` 或缺少必要的环境变量。使用 `kubectl describe pod` 查看 Events。
 
-**GET** `/api/v1/sessions?user_id=user_123`
-
-获取用户的会话列表
-
-## 工作流程
-
-1. **意图识别**：Planner Agent 分析用户输入，识别意图（学习/出题/批改/解析/闲聊）
-2. **路由分发**：根据意图将请求路由到对应的 Agent
-3. **任务执行**：
-   - 教学类意图（learn/quiz/score/explain）→ 经过 Critic 审查 → Summarizer 总结
-   - 闲聊类意图（chitchat）→ 直接输出，不经过审查，支持联网搜索
-4. **质量审查**：Critic Agent 审查教学类内容质量，不合格可打回重做（最多 2 次）
-5. **异步持久化**：响应返回后，BackgroundTasks 异步将学习数据保存到 PostgreSQL 和 DashVector
+**Q: Critic Agent 审查报 JSON 解析错误？**
+A: LLM 返回的 JSON 包含非法转义字符，系统已内置容错处理，会自动降级通过。
 
 ---
 
-## 贡献指南
+## 适用场景
 
-欢迎提交 Issue 和 Pull Request！
+- **个性化智能教学辅导**（多 Agent 协作，覆盖学、练、测、评全链路）
+- **智能出题与自动批改**（基于 RAG 检索的知识点精准出题）
+- **错题解析与知识巩固**（针对性分析薄弱环节）
+- **联网搜索增强的通用问答**（支持实时信息查询）
+- **云原生 AI 应用工程化实践**
+- **AI 应用 CI/CD 与 GitOps 交付演示**
 
-## 许可证
+---
 
-本项目采用 MIT 许可证。
+## 作者
+
+**朱伟业 (AmazingYe)**
+- 2027 届 数据科学与大数据技术
+- AWS Certified Solutions Architect - Professional
+- 阿里云大模型 ACP 认证
+- 寻求云计算 / 云原生 / DevOps / SRE / AI 工程化相关实习机会，欢迎联系交流！
