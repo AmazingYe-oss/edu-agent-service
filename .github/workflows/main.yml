@@ -9,9 +9,9 @@ permissions:
   contents: read
 
 env:
-  ACR_REGISTRY: ${{ secrets.ACR_REGISTRY }}
-  ACR_NAMESPACE: ${{ secrets.ACR_NAMESPACE }}
-  ACR_REPO: ${{ secrets.ACR_REPO }}
+  ACR_REGISTRY: crpi-he7mqvhihpnvi080.cn-shanghai.personal.cr.aliyuncs.com
+  ACR_NAMESPACE: edu-agent-project
+  ACR_REPO: edu-agent-service
 
 jobs:
   build-and-push:
