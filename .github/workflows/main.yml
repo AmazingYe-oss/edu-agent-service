@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  ACR_REGISTRY: crpi-he7mqvhihpnvi080.cn-shanghai.personal.cr.aliyuncs.com
+  ACR_REGISTRY: crpi-he7mqvhihpnvi08o.cn-shanghai.personal.cr.aliyuncs.com
   ACR_NAMESPACE: edu-agent-project
   ACR_REPO: edu-agent-service
 
